@@ -31,6 +31,7 @@ DEVNET_NO_BUILD = os.getenv('DEVNET_NO_BUILD') == "true"
 DEVNET_L2OO = os.getenv('DEVNET_L2OO') == "true"
 DEVNET_ALTDA = os.getenv('DEVNET_ALTDA') == "true"
 GENERIC_ALTDA = os.getenv('GENERIC_ALTDA') == "true"
+TRAFFIC_GEN = os.getenv('TRAFFIC_GEN') == "true"
 
 class Bunch:
     def __init__(self, **kwds):
@@ -173,6 +174,12 @@ def devnet_l2_allocs(paths):
 
 # Bring up the devnet where the contracts are deployed to L1
 def devnet_deploy(paths):
+
+    log.info('Starting peripheral telemetry services.')
+    run_command(['docker', 'compose', 'up', '-d', 'prometheus', 'grafana', 'loki', 'promtail', 'ethereum-metrics-exporter-l2'], cwd=paths.ops_bedrock_dir, env={
+        'PWD': paths.ops_bedrock_dir
+    })
+
     if os.path.exists(paths.genesis_l1_path):
         log.info('L1 genesis already generated.')
     else:
@@ -287,6 +294,11 @@ def devnet_deploy(paths):
     log.info('Bringing up `op-node`, `op-proposer` and `op-batcher`.')
     run_command(['docker', 'compose', 'up', '-d', 'op-node', 'op-proposer', 'op-batcher', 'artifact-server'], cwd=paths.ops_bedrock_dir, env=docker_env)
 
+    # Optionally bring up traffic-gen.
+    if TRAFFIC_GEN:
+      log.info('Bringing up `evm-tx-load-gen`.')
+      run_command(['docker', 'compose', 'up', '-d', 'evm-tx-load-gen'], cwd=paths.ops_bedrock_dir, env=docker_env)
+
     # Optionally bring up op-challenger.
     if not DEVNET_L2OO:
         log.info('Bringing up `op-challenger`.')
@@ -294,8 +306,8 @@ def devnet_deploy(paths):
 
     # Optionally bring up Alt-DA Mode components.
     if DEVNET_ALTDA:
-        log.info('Bringing up `da-server`, `sentinel`.') # TODO(10141): We don't have public sentinel images yet
-        run_command(['docker', 'compose', 'up', '-d', 'da-server'], cwd=paths.ops_bedrock_dir, env=docker_env)
+        log.info('Bringing up `da-server`, `redis-cache`.') # TODO(10141): We don't have public sentinel images yet
+        run_command(['docker', 'compose', 'up', '-d', 'da-server', 'redis-cache'], cwd=paths.ops_bedrock_dir, env=docker_env)
 
     # Fin.
     log.info('Devnet ready.')
