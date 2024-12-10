@@ -51,7 +51,6 @@ jobs:
     strategy:
       matrix:
         packages:
-          - op-batcher
           - op-node
           - op-alt-da
           - op-e2e/system/altda
@@ -72,7 +71,6 @@ jobs:
         with:
           path: packages/contracts-bedrock/forge-artifacts
           key: ${{ runner.os }}-forge-${{ hashFiles('packages/contracts-bedrock/src/**/*.sol') }}
-
       # Cache has been stored in the build-and-cache-contracts job, so if this fails there's a problem
       - name: Check cache restore
         if: steps.cache-restore.outputs.cache-hit != 'true'
@@ -100,3 +98,38 @@ jobs:
       - name: Run tests
         run: |
           go test -timeout=10m ./${{ matrix.packages }}/...
+
+  # We test the batcher independently because one of its test relies on the failpoint tool
+  # See the test-failpoint job in op-batcher/justfile for more details
+  test-batcher:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@v2
+        with:
+          version: 2024.12.14 # [default: latest] mise version to install
+          install: true # [default: true] run `mise install`
+          cache: true # [default: true] cache mise using GitHub's cache
+          experimental: true # [default: false] enable experimental features
+
+      # We use mise to install golang instead of the setup-go action,
+      # so we need to do the cache setup ourselves
+      - name: Go Module Cache
+        uses: actions/cache@v3
+        id: go-cache
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      # Add explicit download on cache miss
+      # go test runs `go mod download` implicitly, but this separation is nice to see how long downloading vs running tests takes
+      - name: Download Go modules
+        if: steps.go-cache.outputs.cache-hit != 'true'
+        run: go mod download
+
+      - name: Run tests
+        working-directory: op-batcher
+        run: just test

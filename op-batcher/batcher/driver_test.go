@@ -2,15 +2,24 @@ package batcher
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
+	"math/big"
 	"testing"
+	"time"
 
+	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/pingcap/failpoint"
 	"github.com/stretchr/testify/require"
 )
 
@@ -115,4 +124,274 @@ func TestBatchSubmitter_SafeL1Origin_FailsToResolveRollupClient(t *testing.T) {
 
 	_, err := bs.safeL1Origin(context.Background())
 	require.Error(t, err)
+}
+
+// ======= ALTDA TESTS =======
+
+// fakeL1Client is just a dummy struct. All fault injection is done via the fakeTxMgr (which doesn't interact with this fakeL1Client).
+type fakeL1Client struct {
+}
+
+func (f *fakeL1Client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
+	if number == nil {
+		number = big.NewInt(0)
+	}
+	return &types.Header{
+		Number:     number,
+		ParentHash: common.Hash{},
+		Time:       0,
+	}, nil
+}
+func (f *fakeL1Client) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
+	return 0, nil
+}
+
+func altDASetup(t *testing.T, log log.Logger) (*BatchSubmitter, *mockL2EndpointProvider, *altda.MockDAClient, *testutils.FakeTxMgr) {
+	ep := newEndpointProvider()
+
+	rollupCfg := &rollup.Config{
+		Genesis:   rollup.Genesis{L2: eth.BlockID{Number: 0}, L1: eth.BlockID{Number: genesisL1Origin}},
+		L2ChainID: big.NewInt(1234),
+	}
+	batcherCfg := BatcherConfig{
+		PollInterval: 10 * time.Millisecond,
+		UseAltDA:     true,
+	}
+
+	fakeTxMgr := testutils.NewFakeTxMgr(log.With("subsystem", "fake-txmgr"), common.Address{0})
+	l1Client := &fakeL1Client{}
+
+	channelCfg := ChannelConfig{
+		// SeqWindowSize:      15,
+		// SubSafetyMargin:    4,
+		ChannelTimeout:  10,
+		MaxFrameSize:    150, // so that each channel has exactly 1 frame
+		TargetNumFrames: 1,
+		BatchType:       derive.SingularBatchType,
+		CompressorConfig: compressor.Config{
+			Kind: compressor.NoneKind,
+		},
+	}
+	mockAltDAClient := altda.NewCountingGenericCommitmentMockDAClient(log.With("subsystem", "da-client"))
+	return NewBatchSubmitter(DriverSetup{
+		Log:              log,
+		Metr:             metrics.NoopMetrics,
+		RollupConfig:     rollupCfg,
+		ChannelConfig:    channelCfg,
+		Config:           batcherCfg,
+		EndpointProvider: ep,
+		Txmgr:            fakeTxMgr,
+		L1Client:         l1Client,
+		AltDA:            mockAltDAClient,
+	}), ep, mockAltDAClient, fakeTxMgr
+}
+
+func fakeSyncStatus(unsafeL2BlockNum uint64, L1BlockRef eth.L1BlockRef) *eth.SyncStatus {
+	return &eth.SyncStatus{
+		UnsafeL2: eth.L2BlockRef{
+			Number: unsafeL2BlockNum,
+			L1Origin: eth.BlockID{
+				Number: 0,
+			},
+		},
+		SafeL2: eth.L2BlockRef{
+			Number: 0,
+			L1Origin: eth.BlockID{
+				Number: 0,
+			},
+		},
+		HeadL1: L1BlockRef,
+	}
+}
+
+// There are 4 failure cases (unhappy paths) that the op-batcher has to deal with.
+// They are outlined in https://github.com/ethereum-optimism/optimism/tree/develop/op-batcher#happy-path
+// This test suite covers these 4 cases in the context of AltDA.
+func TestBatchSubmitter_AltDA_FailureCase1_L2Reorg(t *testing.T) {
+	t.Parallel()
+	log := testlog.Logger(t, log.LevelDebug)
+	bs, ep, mockAltDAClient, fakeTxMgr := altDASetup(t, log)
+
+	L1Block0 := types.NewBlock(&types.Header{
+		Number: big.NewInt(0),
+	}, nil, nil, nil, types.DefaultBlockConfig)
+	L1Block0Ref := eth.L1BlockRef{
+		Hash:   L1Block0.Hash(),
+		Number: L1Block0.NumberU64(),
+	}
+	// We return incremental syncStatuses to force the op-batcher to entirely process each L2 block one by one.
+	// To test multi channel behavior, we could return a sync status that is multiple blocks ahead of the current L2 block.
+	ep.rollupClient.Mock.On("SyncStatus").Times(10).Return(fakeSyncStatus(1, L1Block0Ref), nil)
+	ep.rollupClient.Mock.On("SyncStatus").Times(10).Return(fakeSyncStatus(2, L1Block0Ref), nil)
+	ep.rollupClient.Mock.On("SyncStatus").Times(10).Return(fakeSyncStatus(3, L1Block0Ref), nil)
+	ep.rollupClient.Mock.On("SyncStatus").Times(10).Return(fakeSyncStatus(1, L1Block0Ref), nil)
+	ep.rollupClient.Mock.On("SyncStatus").Times(10).Return(fakeSyncStatus(2, L1Block0Ref), nil)
+	ep.rollupClient.Mock.On("SyncStatus").Return(fakeSyncStatus(3, L1Block0Ref), nil)
+
+	L2Block0 := newMiniL2BlockWithNumberParent(1, big.NewInt(0), common.HexToHash("0x0"))
+	L2Block1 := newMiniL2BlockWithNumberParent(1, big.NewInt(1), L2Block0.Hash())
+	L2Block2 := newMiniL2BlockWithNumberParent(1, big.NewInt(2), L2Block1.Hash())
+	L2Block2Prime := newMiniL2BlockWithNumberParentAndL1Information(1, big.NewInt(2), L2Block1.Hash(), 101, 0)
+	L2Block3Prime := newMiniL2BlockWithNumberParent(1, big.NewInt(3), L2Block2Prime.Hash())
+
+	// L2block0 is the genesis block which is considered safe, so never loaded into the state.
+	ep.ethClient.Mock.On("BlockByNumber", big.NewInt(1)).Twice().Return(L2Block1, nil)
+	ep.ethClient.Mock.On("BlockByNumber", big.NewInt(2)).Once().Return(L2Block2, nil)
+	ep.ethClient.Mock.On("BlockByNumber", big.NewInt(2)).Once().Return(L2Block2Prime, nil)
+	ep.ethClient.Mock.On("BlockByNumber", big.NewInt(3)).Twice().Return(L2Block3Prime, nil)
+
+	err := bs.StartBatchSubmitting()
+	require.NoError(t, err)
+	time.Sleep(1 * time.Second) // 1 second is enough to process all blocks at 10ms poll interval
+	err = bs.StopBatchSubmitting(context.Background())
+	require.NoError(t, err)
+
+	// After the reorg, block 1 needs to be reprocessed, hence why we see 5 store calls: 1, 2, 1, 2', 3'
+	require.Equal(t, 5, mockAltDAClient.StoreCount)
+	require.Equal(t, uint64(5), fakeTxMgr.Nonce)
+
+}
+
+func TestBatchSubmitter_AltDA_FailureCase2_FailedL1Tx(t *testing.T) {
+	t.Parallel()
+	log := testlog.Logger(t, log.LevelDebug)
+	bs, ep, mockAltDAClient, fakeTxMgr := altDASetup(t, log)
+
+	L1Block0 := types.NewBlock(&types.Header{
+		Number: big.NewInt(0),
+	}, nil, nil, nil, types.DefaultBlockConfig)
+	L1Block0Ref := eth.L1BlockRef{
+		Hash:   L1Block0.Hash(),
+		Number: L1Block0.NumberU64(),
+	}
+	// We return incremental syncStatuses to force the op-batcher to entirely process each L2 block one by one.
+	// To test multi channel behavior, we could return a sync status that is multiple blocks ahead of the current L2 block.
+	ep.rollupClient.Mock.On("SyncStatus").Times(10).Return(fakeSyncStatus(1, L1Block0Ref), nil)
+	ep.rollupClient.Mock.On("SyncStatus").Times(10).Return(fakeSyncStatus(2, L1Block0Ref), nil)
+	ep.rollupClient.Mock.On("SyncStatus").Times(10).Return(fakeSyncStatus(3, L1Block0Ref), nil)
+	ep.rollupClient.Mock.On("SyncStatus").Return(fakeSyncStatus(4, L1Block0Ref), nil)
+
+	L2Block0 := newMiniL2BlockWithNumberParent(1, big.NewInt(0), common.HexToHash("0x0"))
+	L2Block1 := newMiniL2BlockWithNumberParent(1, big.NewInt(1), L2Block0.Hash())
+	L2Block2 := newMiniL2BlockWithNumberParent(1, big.NewInt(2), L2Block1.Hash())
+	L2Block3 := newMiniL2BlockWithNumberParent(1, big.NewInt(3), L2Block2.Hash())
+	L2Block4 := newMiniL2BlockWithNumberParent(1, big.NewInt(4), L2Block3.Hash())
+
+	// L2block0 is the genesis block which is considered safe, so never loaded into the state.
+	ep.ethClient.Mock.On("BlockByNumber", big.NewInt(1)).Once().Return(L2Block1, nil)
+	ep.ethClient.Mock.On("BlockByNumber", big.NewInt(2)).Once().Return(L2Block2, nil)
+	ep.ethClient.Mock.On("BlockByNumber", big.NewInt(3)).Once().Return(L2Block3, nil)
+	ep.ethClient.Mock.On("BlockByNumber", big.NewInt(4)).Once().Return(L2Block4, nil)
+
+	fakeTxMgr.ErrorEveryNthSend(2)
+	err := bs.StartBatchSubmitting()
+	require.NoError(t, err)
+	time.Sleep(1 * time.Second) // 1 second is enough to process all blocks at 10ms poll interval
+	err = bs.StopBatchSubmitting(context.Background())
+	require.NoError(t, err)
+
+	require.Equal(t, 4, mockAltDAClient.StoreCount)
+	// TODO: we should prob also check that the commitments are in order?
+	require.Equal(t, uint64(4), fakeTxMgr.Nonce)
+}
+
+// FailpointTest, which can't be run normally, because it requires failpoint to be enabled.
+// Run it via `just test-failpoint` from the op-batcher directory.
+func TestBatchSubmitter_AltDA_FailureCase3_ChannelTimeout_FailpointTest(t *testing.T) {
+	t.Parallel()
+
+	// // Failpoint injects code in channel.isTimedOut to return true 50% of the time, for up to 4 times.
+	err := failpoint.Enable("github.com/ethereum-optimism/optimism/op-batcher/batcher/channel.isTimedOut", "50%4*return(true)")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = failpoint.Disable("github.com/ethereum-optimism/optimism/op-batcher/batcher/channel.isTimedOut")
+	})
+
+	log := testlog.Logger(t, log.LevelInfo)
+	bs, ep, mockAltDAClient, fakeTxMgr := altDASetup(t, log)
+	L1Block0 := types.NewBlock(&types.Header{
+		Number: big.NewInt(0),
+	}, nil, nil, nil, types.DefaultBlockConfig)
+	L1Block0Ref := eth.L1BlockRef{
+		Hash:   L1Block0.Hash(),
+		Number: L1Block0.NumberU64(),
+	}
+	// We return incremental syncStatuses to force the op-batcher to entirely process each L2 block one by one.
+	// To test multi channel behavior, we could return a sync status that is multiple blocks ahead of the current L2 block.
+	// Removing the first 3 mock calls and only always returning a syncStatus on block 4 makes the batcher load all 4 blocks at once,
+	// and send them in parallel. However, the current channel timeout logic is not robust to this: https://github.com/ethereum-optimism/optimism/issues/13283
+	// TODO: After that issue is fixed, we can remove the first 3 mock calls here to test with more concurrent channels.
+	ep.rollupClient.Mock.On("SyncStatus").Times(10).Return(fakeSyncStatus(1, L1Block0Ref), nil)
+	ep.rollupClient.Mock.On("SyncStatus").Times(10).Return(fakeSyncStatus(2, L1Block0Ref), nil)
+	ep.rollupClient.Mock.On("SyncStatus").Times(10).Return(fakeSyncStatus(3, L1Block0Ref), nil)
+	ep.rollupClient.Mock.On("SyncStatus").Return(fakeSyncStatus(4, L1Block0Ref), nil)
+
+	L2Block0 := newMiniL2BlockWithNumberParent(1, big.NewInt(0), common.HexToHash("0x0"))
+	L2Block1 := newMiniL2BlockWithNumberParent(1, big.NewInt(1), L2Block0.Hash())
+	L2Block2 := newMiniL2BlockWithNumberParent(1, big.NewInt(2), L2Block1.Hash())
+	L2Block3 := newMiniL2BlockWithNumberParent(1, big.NewInt(3), L2Block2.Hash())
+	L2Block4 := newMiniL2BlockWithNumberParent(1, big.NewInt(4), L2Block3.Hash())
+
+	// L2block0 is the genesis block which is considered safe, so never loaded into the state.
+	ep.ethClient.Mock.On("BlockByNumber", big.NewInt(1)).Once().Return(L2Block1, nil)
+	ep.ethClient.Mock.On("BlockByNumber", big.NewInt(2)).Once().Return(L2Block2, nil)
+	ep.ethClient.Mock.On("BlockByNumber", big.NewInt(3)).Once().Return(L2Block3, nil)
+	ep.ethClient.Mock.On("BlockByNumber", big.NewInt(4)).Once().Return(L2Block4, nil)
+
+	err = bs.StartBatchSubmitting()
+	require.NoError(t, err)
+	time.Sleep(1 * time.Second) // 1 second is enough to process all blocks at 10ms poll interval
+	err = bs.StopBatchSubmitting(context.Background())
+	require.NoError(t, err)
+
+	log.Info("Number of commitments stored by the mockAltDAClient", "StoreCount", mockAltDAClient.StoreCount)
+	for i, txData := range fakeTxMgr.SuccessfullySentTxData {
+		// the mockAltDAClient uses counting commitments which take the last 2 bytes (bigEndian uint16),
+		// and the op-batcher adds the first 2 bytes for the version_byte and commitment_type.
+		// See https://specs.optimism.io/experimental/alt-da.html#input-commitment-submission
+		require.Equal(t, 4, len(txData))
+		// This is a very naive test, because we only check that the requests received by the fakeAltDAClient are sent to L1 in order.
+		// But this is neither necessary not sufficient. It works right now because the frames are sent in order to the altDAClient (see TODO above).
+		// But ultimately it is the frames that need to be sent in order, not the random commitment counts generate by the fakeAltDAClient.
+		// TODO: we should prob take the commitment and retrieve the frames from the fakeAltDAClient, and check that those were received in order somehow.
+		require.Equal(t, binary.BigEndian.Uint16(txData[2:4]), uint16(i), "altda commitments should be sent to L1 in order.")
+	}
+}
+
+func TestBatchSubmitter_AltDA_FailureCase4_FailedBlobSubmission(t *testing.T) {
+	t.Parallel()
+	log := testlog.Logger(t, log.LevelDebug)
+	bs, ep, mockAltDAClient, fakeTxMgr := altDASetup(t, log)
+
+	L1Block0 := types.NewBlock(&types.Header{
+		Number: big.NewInt(0),
+	}, nil, nil, nil, types.DefaultBlockConfig)
+	L1Block0Ref := eth.L1BlockRef{
+		Hash:   L1Block0.Hash(),
+		Number: L1Block0.NumberU64(),
+	}
+	ep.rollupClient.Mock.On("SyncStatus").Return(fakeSyncStatus(4, L1Block0Ref), nil)
+
+	L2Block0 := newMiniL2BlockWithNumberParent(1, big.NewInt(0), common.HexToHash("0x0"))
+	L2Block1 := newMiniL2BlockWithNumberParent(1, big.NewInt(1), L2Block0.Hash())
+	L2Block2 := newMiniL2BlockWithNumberParent(1, big.NewInt(2), L2Block1.Hash())
+	L2Block3 := newMiniL2BlockWithNumberParent(1, big.NewInt(3), L2Block2.Hash())
+	L2Block4 := newMiniL2BlockWithNumberParent(1, big.NewInt(4), L2Block3.Hash())
+
+	// L2block0 is the genesis block which is considered safe, so never loaded into the state.
+	ep.ethClient.Mock.On("BlockByNumber", big.NewInt(1)).Once().Return(L2Block1, nil)
+	ep.ethClient.Mock.On("BlockByNumber", big.NewInt(2)).Once().Return(L2Block2, nil)
+	ep.ethClient.Mock.On("BlockByNumber", big.NewInt(3)).Once().Return(L2Block3, nil)
+	ep.ethClient.Mock.On("BlockByNumber", big.NewInt(4)).Once().Return(L2Block4, nil)
+
+	mockAltDAClient.DropEveryNthPut(2)
+
+	err := bs.StartBatchSubmitting()
+	require.NoError(t, err)
+	time.Sleep(1 * time.Second) // 1 second is enough to process all blocks at 10ms poll interval
+	err = bs.StopBatchSubmitting(context.Background())
+	require.NoError(t, err)
+
+	require.Equal(t, 4, mockAltDAClient.StoreCount)
+	require.Equal(t, uint64(4), fakeTxMgr.Nonce)
 }
