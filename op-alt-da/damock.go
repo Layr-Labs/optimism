@@ -104,9 +104,13 @@ func (c *MockDAClient) DeleteData(key []byte) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.log.Debug("Deleting data", "key", key)
-	err := c.store.Delete(key)
-	if err == nil {
-		c.StoreCount--
+	// memorydb.Delete() returns nil even when the key doesn't exist, so we need to check if the key exists
+	// before decrementing StoreCount.
+	var err error
+	if _, err = c.store.Get(key); err == nil {
+		if err = c.store.Delete(key); err == nil {
+			c.StoreCount--
+		}
 	}
 	return err
 }
