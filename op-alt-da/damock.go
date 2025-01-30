@@ -40,7 +40,7 @@ func NewMockDAClient(log log.Logger) *MockDAClient {
 }
 
 // NewCountingGenericCommitmentMockDAClient creates a MockDAClient that uses counting commitments.
-// It's commitments are big-endian encoded uint16s of 0, 1, 2, etc. instead of actual hash or altda-layer related commitments.
+// Its commitments are big-endian encoded uint16s of 0, 1, 2, etc. instead of actual hash or altda-layer related commitments.
 // Used for testing to make sure we receive commitments in order following Holocene strict ordering rules.
 func NewCountingGenericCommitmentMockDAClient(log log.Logger) *MockDAClient {
 	return &MockDAClient{

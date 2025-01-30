@@ -23,7 +23,7 @@ type channel struct {
 	channelBuilder *ChannelBuilder
 	// Temporary cache for altDACommitments that are received potentially out of order from the da layer.
 	// Map: first frameNumber in txData -> txData (that contains an altDACommitment)
-	// Once the txData containing altDANextFrame is received, it will be pulled out of the
+	// Once the txData containing altDAFrameCursor is received, it will be pulled out of the
 	// channel on the next driver iteration, and sent to L1.
 	altDACommitments map[uint16]txData
 	// Points to the next frame number to send to L1 in order to maintain holocene strict ordering rules.
@@ -55,6 +55,10 @@ func newChannel(log log.Logger, metr metrics.Metricer, cfg ChannelConfig, rollup
 	}
 }
 
+// CacheAltDACommitment caches the commitment received from the DA layer for the given txData.
+// We cannot submit it directly to L1 yet, as we need to make sure the commitments are submitted in order,
+// according to the holocene rules. Therefore, we cache the commitment and let the channelManager
+// decide when to pull them out of the channel and send them to L1.
 func (s *channel) CacheAltDACommitment(txData txData, commitment altda.CommitmentData) {
 	if commitment == nil {
 		panic("expected non-nil commitment")
@@ -192,6 +196,9 @@ func (c *channel) ID() derive.ChannelID {
 	return c.channelBuilder.ID()
 }
 
+// NextAltDACommitment checks if it has already received the altDA commitment
+// of the txData whose first frame is altDAFrameCursor. If it has, it returns
+// the txData and true. Otherwise, it returns an empty txData and false.
 func (c *channel) NextAltDACommitment() (txData, bool) {
 	if txData, ok := c.altDACommitments[c.altDAFrameCursor]; ok {
 		if txData.altDACommitment == nil {
@@ -200,7 +207,7 @@ func (c *channel) NextAltDACommitment() (txData, bool) {
 		if len(txData.frames) == 0 {
 			panic("expected txData to have frames")
 		}
-		// update altDANextFrame to the first frame of the next txData
+		// update altDAFrameCursor to the first frame of the next txData
 		lastFrame := txData.frames[len(txData.frames)-1]
 		c.altDAFrameCursor = lastFrame.id.frameNumber + 1
 		// We also store it in pendingTransactions so that TxFailed can know

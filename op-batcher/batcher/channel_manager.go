@@ -92,6 +92,9 @@ func (s *channelManager) pendingBlocks() int {
 	return s.blocks.Len() - s.blockCursor
 }
 
+// CacheAltDACommitment caches the commitment received from the DA layer for the given txData.
+// We cannot submit it directly to L1 yet, as we need to make sure the commitments are submitted in order,
+// according to the holocene rules. Therefore, we cache them and let the channelManager decide when to submit them.
 func (s *channelManager) CacheAltDACommitment(txData txData, commitment altda.CommitmentData) {
 	if len(txData.frames) == 0 {
 		panic("no frames in txData")
@@ -110,6 +113,9 @@ func (s *channelManager) CacheAltDACommitment(txData txData, commitment altda.Co
 	}
 }
 
+// AltDASubmissionFailed marks a DA submission as having failed to be submitted to the DA layer.
+// The frames will be pushed back into the corresponding channel such that they can be pulled again by the
+// driver main loop and resent to the DA layer.
 func (s *channelManager) AltDASubmissionFailed(_id txID) {
 	id := _id.String()
 	if channel, ok := s.txChannels[id]; ok {
