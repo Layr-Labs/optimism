@@ -20,6 +20,8 @@ jobs:
         uses: ./.github/actions/kurtosis-install
         with:
           version: ${{ env.KURTOSIS_VERSION }}
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
       - uses: extractions/setup-just@v2
       # Needed by the just eigenda-holesky-devnet command below
       # These secrets get injected into the eigenda-holesky.yaml kurtosis config file
