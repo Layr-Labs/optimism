@@ -75,8 +75,8 @@ devnet-test DEVNET *TEST:
 
 # Devnet recipes
 
-# AltDA devnet
-altda-devnet: (devnet "altda.yaml" "altda-secrets.json" "altda-devnet")
+# EigenDA devnet that uses eigenda-proxy connected to eigenda holesky testnet network
+eigenda-holesky-devnet: (devnet "eigenda-holesky.yaml" "eigenda-secrets.json" "eigenda-holesky")
 
 # Simple devnet
 simple-devnet: (devnet "simple.yaml")
