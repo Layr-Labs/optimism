@@ -10,8 +10,8 @@ optimism_package:
   altda_deploy_config:
     use_altda: true
     da_commitment_type: GenericCommitment
-    da_challenge_window: 1
-    da_resolve_window: 1
+    da_challenge_window: 16
+    da_resolve_window: 16
     da_bond_size: 0
     da_resolver_refund_percentage: 0
   chains:
