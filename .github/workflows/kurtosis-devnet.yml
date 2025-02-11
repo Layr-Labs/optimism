@@ -5,11 +5,6 @@ on:
     branches: [eigenda-develop]
   pull_request:
 
-env:
-  # TODO: we should prob just use the mise version instead to make
-  # sure we are using the correct version if the mise version ever gets updated.
-  KURTOSIS_VERSION: '1.4.4'
-
 jobs:
   # This is an optimism devnet which talks to the eigenda holesky testnet via an eigenda-proxy.
   # TODO: we should connect this to an eigenda kurtosis devnet instead of using our holesky testnet.
@@ -18,13 +13,12 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-      - name: Setup Kurtosis
-        uses: ./.github/actions/kurtosis-install
+      - uses: jdx/mise-action@v2
         with:
-          version: ${{ env.KURTOSIS_VERSION }}
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-      - uses: extractions/setup-just@v2
+          version: 2024.12.14 # [default: latest] mise version to install
+          install: true # [default: true] run `mise install`
+          cache: true # [default: true] cache mise using GitHub's cache
+          experimental: true # [default: false] enable experimental features
       # Needed by the just eigenda-holesky-devnet command below
       # These secrets get injected into the eigenda-holesky.yaml kurtosis config file
       - name: Create EigenDA secrets file
