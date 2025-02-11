@@ -6,7 +6,9 @@ on:
   pull_request:
 
 env:
-  KURTOSIS_VERSION: 'latest'
+  # TODO: we should prob just use the mise version instead to make
+  # sure we are using the correct version if the mise version ever gets updated.
+  KURTOSIS_VERSION: '1.4.4'
 
 jobs:
   # This is an optimism devnet which talks to the eigenda holesky testnet via an eigenda-proxy.
