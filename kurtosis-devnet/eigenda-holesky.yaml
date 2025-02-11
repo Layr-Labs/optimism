@@ -41,16 +41,16 @@ optimism_package:
       batcher_params:
         image: {{ localDockerImage "op-batcher" }}
         extra_params: []
-      challenger_params:
-        image: {{ localDockerImage "op-challenger" }}
-        cannon_prestate_path: ""
-        cannon_prestates_url: "http://fileserver/proofs/op-program/cannon"
-        extra_params: []
       proposer_params:
         image: {{ localDockerImage "op-proposer" }}
         extra_params: []
         game_type: 1
         proposal_interval: 10m
+      challenger_params:
+        image: {{ localDockerImage "op-challenger" }}
+        cannon_prestate_path: ""
+        cannon_prestates_url: "http://fileserver/proofs/op-program/cannon"
+        extra_params: []
       mev_params:
         rollup_boost_image: ""
         builder_host: ""
