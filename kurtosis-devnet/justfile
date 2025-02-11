@@ -41,9 +41,7 @@ op-proposer-image TAG='op-proposer:devnet': (_docker_build_stack TAG "op-propose
 op-supervisor-image TAG='op-supervisor:devnet': (_docker_build_stack TAG "op-supervisor-target")
 op-wheel-image TAG='op-wheel:devnet': (_docker_build_stack TAG "op-wheel-target")
 
-# TODO: change back to ethpandaops/optimism after our PR is merged
-#       https://github.com/ethpandaops/optimism-package/pull/154
-KURTOSIS_PACKAGE := "github.com/layr-labs/optimism-package@feat--alt-da-layr-labs"
+KURTOSIS_PACKAGE := "github.com/ethpandaops/optimism-package"
 
 # Devnet template recipe
 devnet TEMPLATE_FILE DATA_FILE="" NAME="":
