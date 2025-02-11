@@ -9,6 +9,13 @@
 optimism_package:
   altda_deploy_config:
     use_altda: true
+    # We use the generic commitment which means that the dachallenge contract won't get deployed.
+    # We align with l2beat's analysis of the da_challenge contract not being economically viable,
+    # so even if a rollup failsover to keccak commitments, not using the da_challenge contract is fine
+    # (has same security as using it).
+    # See https://l2beat.com/scaling/projects/redstone#da-layer-risk-analysis and
+    # https://discord.com/channels/1244729134312198194/1260612364865245224/1290294353688002562 for
+    # an economic analysis of the da challenge contract.
     da_commitment_type: GenericCommitment
     da_challenge_window: 16
     da_resolve_window: 16
