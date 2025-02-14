@@ -65,6 +65,7 @@ func (c *channel) TxFailed(id string, failoverToEthDA bool) {
 		// and is only used while the altDA is down, so we can afford to be inefficient here.
 		// TODO: figure out how to switch to blobs/auto instead. Might need to make
 		// batcherService.initChannelConfig function stateless so that we can reuse it.
+		c.log.Info("Failing over to calldata txs", "id", c.ID())
 		c.cfg.DaType = DaTypeCalldata
 	}
 	c.metr.RecordBatchTxFailed()
