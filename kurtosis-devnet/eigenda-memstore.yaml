@@ -54,13 +54,14 @@ optimism_package:
         game_type: 1
         proposal_interval: 10m
       challenger_params:
+        # TODO: reenable once we start testing secure integrations
         enabled: false
         image: {{ localDockerImage "op-challenger" }}
         cannon_prestate_path: ""
         cannon_prestates_url: "http://fileserver/proofs/op-program/cannon"
         extra_params: []
       da_server_params:
-        image: ghcr.io/layr-labs/eigenda-proxy:dev
+        image: ghcr.io/layr-labs/eigenda-proxy:v1.6.4
         cmd:
           - --addr
           - 0.0.0.0
