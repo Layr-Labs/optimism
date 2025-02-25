@@ -32,3 +32,12 @@
 [submodule "packages/contracts-bedrock/lib/superchain-registry"]
 	path = packages/contracts-bedrock/lib/superchain-registry
 	url = https://github.com/ethereum-optimism/superchain-registry
+[submodule "kurtosis-devnet/tests/bats"]
+	path = kurtosis-devnet/tests/bats
+	url = https://github.com/bats-core/bats-core.git
+[submodule "kurtosis-devnet/tests/test_helper/bats-support"]
+	path = kurtosis-devnet/tests/test_helper/bats-support
+	url = https://github.com/bats-core/bats-support.git
+[submodule "kurtosis-devnet/tests/test_helper/bats-assert"]
+	path = kurtosis-devnet/tests/test_helper/bats-assert
+	url = https://github.com/bats-core/bats-assert.git
