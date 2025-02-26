@@ -26,6 +26,13 @@ import (
 // We assume that this enclave is already running.
 const enclaveName = "eigenda-memstore-devnet"
 
+// TestFailover tests the failover behavior of the batcher, in response to the proxy returning 503 errors.
+// See https://github.com/Layr-Labs/eigenda-proxy?tab=readme-ov-file#failover-signals for proxy behavior.
+// The proxy's memstore's failover behavior is toggled on and off by this test via a REST api.
+// We then check that the batcher correctly interprets the 503 signals and starts submitting batches to EthDA instead.
+// The test then toggles the failover back off and checks that the batcher starts submitting EigenDA batches again.
+// The batches inbox transactions are queried via geth's GraphQL API.
+// TODO: We will also need to test the failover behavior of the node, which currently doesn't finalize after failover (fixed in https://github.com/Layr-Labs/optimism/pull/23)
 func TestFailover(t *testing.T) {
 	deadline, ok := t.Deadline()
 	if !ok {
@@ -53,6 +60,7 @@ func TestFailover(t *testing.T) {
 	harness.requireBatcherTxsToBeFromLayer(t, sinceBlock, DALayerEigenDA)
 
 	// 2. Failover and check that the commitments are now EthDA
+	t.Logf("Failover over... changing proxy's config to return 503 errors")
 	err := harness.clients.proxyMemconfigClient.Failover(ctxWithDeadline)
 	require.NoError(t, err)
 
@@ -67,6 +75,7 @@ func TestFailover(t *testing.T) {
 	harness.requireBatcherTxsToBeFromLayer(t, afterFailoverL1BlockNum, DALayerEth)
 
 	// 3. Failback and check that the commitments are EigenDA again
+	t.Logf("Failing back... changing proxy's config to start processing PUT requests normally again")
 	err = harness.clients.proxyMemconfigClient.Failback(ctxWithDeadline)
 	require.NoError(t, err)
 
@@ -135,25 +144,27 @@ func newHarness(t *testing.T) *harness {
 func (h *harness) requireBatcherTxsToBeFromLayer(t *testing.T, startingFromBlockNum uint64, expectedLayer DALayer) {
 	batcherTxs, err := fetchBatcherTxsSinceBlock(h.endpoints.GethL1Endpoint, h.batchInboxAddr.String(), startingFromBlockNum)
 	require.NoError(t, err)
+	t.Logf("Fetched %d batcher transactions since block %d", len(batcherTxs), startingFromBlockNum)
 
 	// We allow first 3 commitments to be of the wrong DA layer, as the failover/failback might not have taken effect yet.
-	ethDACommitmentsToDiscard := 0
+	wrongCommitmentsToDiscard := 0
 	for _, batcherTx := range batcherTxs {
-		if batcherTx.daLayer == DALayerEth {
-			ethDACommitmentsToDiscard++
+		if batcherTx.daLayer != expectedLayer {
+			wrongCommitmentsToDiscard++
 		}
 		// as soon as we see 3 ethDA commitments, or an EigenDA commitment, we stop
 		// We expect every other commitment to be EigenDA after failback
-		if ethDACommitmentsToDiscard > 2 || batcherTx.daLayer == DALayerEigenDA {
+		if wrongCommitmentsToDiscard > 2 || batcherTx.daLayer == expectedLayer {
 			break
 		}
 	}
-	batcherTxs = batcherTxs[ethDACommitmentsToDiscard:]
+	batcherTxs = batcherTxs[wrongCommitmentsToDiscard:]
+	t.Logf("Discarded %d commitments. %d left which should all be %v", wrongCommitmentsToDiscard, len(batcherTxs), expectedLayer)
 
 	// After potentially discarding up to 3 commitments, we expect all future commitments (at least 2) to be of the expectedLayer
 	require.GreaterOrEqual(t, len(batcherTxs), 2, "Expected at least 2 %v commitments after failover/failback", expectedLayer)
 	for _, batcherTx := range batcherTxs {
-		require.Equal(t, DALayerEigenDA, batcherTx.daLayer,
+		require.Equal(t, expectedLayer, batcherTx.daLayer,
 			"Invalid commitment in block %d: expected %v, received commitment %s", batcherTx.block, expectedLayer, batcherTx.commitment)
 	}
 }
