@@ -1,0 +1,398 @@
+package eigenda_test
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"math/big"
+	"net/http"
+	"reflect"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/Layr-Labs/eigenda-proxy/clients/memconfig_client"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/enclaves"
+	"github.com/kurtosis-tech/kurtosis/api/golang/engine/lib/kurtosis_context"
+	"github.com/stretchr/testify/require"
+)
+
+// All tests are run in the context of the eigenda-memstore-devnet enclave.
+// We assume that this enclave is already running.
+const enclaveName = "eigenda-memstore-devnet"
+
+func TestFailover(t *testing.T) {
+	deadline, ok := t.Deadline()
+	if !ok {
+		deadline = time.Now().Add(1 * time.Minute)
+	}
+	ctxWithDeadline, cancel := context.WithDeadline(context.Background(), deadline)
+	defer cancel()
+
+	harness := newHarness(t)
+	t.Cleanup(func() {
+		// switch proxy back to normal mode, in case test gets cancelled
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		err := harness.clients.proxyMemconfigClient.Failback(ctx)
+		if err != nil {
+			t.Logf("Error failing back... you might need to reset proxy to normal mode manually: %v", err)
+		}
+	})
+
+	// assume kurtosis is running and is at least at block 10 (just deploying the contracts takes more than 10 blocks)
+	require.GreaterOrEqual(t, harness.testStartL1BlockNum, uint64(10), "Test started too early in the chain")
+	sinceBlock := harness.testStartL1BlockNum - 10
+
+	// 1. Check that the original commitments are EigenDA
+	harness.requireBatcherTxsToBeFromLayer(t, sinceBlock, DALayerEigenDA)
+
+	// 2. Failover and check that the commitments are now EthDA
+	err := harness.clients.proxyMemconfigClient.Failover(ctxWithDeadline)
+	require.NoError(t, err)
+
+	afterFailoverL1BlockNum, err := harness.clients.gethL1Client.BlockNumber(ctxWithDeadline)
+	require.NoError(t, err)
+	// Wait for 10 L1 blocks. Assumption is that a cert is being posted every 2 blocks.
+	// Failover should take some time so we wait for 10 blocks to be sure some new commitment has started getting posted.
+	// TODO: read max-channel-duration from batcher's config instead of assuming 2 blocks
+	_, err = geth.WaitForBlock(big.NewInt(int64(afterFailoverL1BlockNum)+10), harness.clients.gethL1Client)
+	require.NoError(t, err)
+
+	harness.requireBatcherTxsToBeFromLayer(t, afterFailoverL1BlockNum, DALayerEth)
+
+	// 3. Failback and check that the commitments are EigenDA again
+	err = harness.clients.proxyMemconfigClient.Failback(ctxWithDeadline)
+	require.NoError(t, err)
+
+	afterFailbackL1BlockNum, err := harness.clients.gethL1Client.BlockNumber(ctxWithDeadline)
+	require.NoError(t, err)
+	_, err = geth.WaitForBlock(big.NewInt(int64(afterFailbackL1BlockNum)+10), harness.clients.gethL1Client)
+	require.NoError(t, err)
+
+	harness.requireBatcherTxsToBeFromLayer(t, afterFailbackL1BlockNum, DALayerEigenDA)
+
+}
+
+// Test Harness, which contains all the state needed to run the tests.
+// harness also defines some higher-level "require" methods that are used in the tests.
+type harness struct {
+	enclaveCtx          *enclaves.EnclaveContext
+	endpoints           *EnclaveServiceEndpoints
+	clients             *EnclaveServiceClients
+	batchInboxAddr      common.Address
+	testStartL1BlockNum uint64
+}
+
+func newHarness(t *testing.T) *harness {
+	// We leave 20 seconds to build the entire testHarness.
+	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	// Create a Kurtosis context
+	kurtosisCtx, err := kurtosis_context.NewKurtosisContextFromLocalEngine()
+	require.NoError(t, err)
+
+	// Get the eigenda-memstore-devnet enclave (assuming it's already running)
+	enclaveCtx, err := kurtosisCtx.GetEnclaveContext(ctxWithTimeout, enclaveName)
+	require.NoError(t, err, "Error getting enclave context: is enclave %v running?", enclaveName)
+
+	endpoints, err := getEndpointsFromKurtosis(enclaveCtx)
+	require.NoError(t, err)
+	t.Logf("Endpoints: %+v", endpoints)
+
+	clients, err := getClientsFromEndpoints(endpoints)
+	require.NoError(t, err)
+
+	// Get the batch inbox address
+	var rollupConfigMap struct {
+		BatchInboxAddress string `json:"batch_inbox_address"`
+	}
+	err = clients.opNodeClient.CallContext(ctxWithTimeout, &rollupConfigMap, "optimism_rollupConfig")
+	require.NoError(t, err)
+
+	// Get the current L1 block number
+	testStartL1BlockNum, err := clients.gethL1Client.BlockNumber(ctxWithTimeout)
+	require.NoError(t, err)
+
+	return &harness{
+		enclaveCtx:          enclaveCtx,
+		endpoints:           endpoints,
+		clients:             clients,
+		batchInboxAddr:      common.HexToAddress(rollupConfigMap.BatchInboxAddress),
+		testStartL1BlockNum: testStartL1BlockNum,
+	}
+}
+
+// requireBatcherTxsToBeFromLayer checks that the batcher transactions since startingFromBlockNum are all from the expectedLayer.
+// It allows for up to 3 initial commitments to be of the wrong type, as the failover/failback might not have taken effect yet.
+// It requires that at least 2 commitments of the expected type are present after the failover/failback.
+func (h *harness) requireBatcherTxsToBeFromLayer(t *testing.T, startingFromBlockNum uint64, expectedLayer DALayer) {
+	batcherTxs, err := fetchBatcherTxsSinceBlock(h.endpoints.GethL1Endpoint, h.batchInboxAddr.String(), startingFromBlockNum)
+	require.NoError(t, err)
+
+	// We allow first 3 commitments to be of the wrong DA layer, as the failover/failback might not have taken effect yet.
+	ethDACommitmentsToDiscard := 0
+	for _, batcherTx := range batcherTxs {
+		if batcherTx.daLayer == DALayerEth {
+			ethDACommitmentsToDiscard++
+		}
+		// as soon as we see 3 ethDA commitments, or an EigenDA commitment, we stop
+		// We expect every other commitment to be EigenDA after failback
+		if ethDACommitmentsToDiscard > 2 || batcherTx.daLayer == DALayerEigenDA {
+			break
+		}
+	}
+	batcherTxs = batcherTxs[ethDACommitmentsToDiscard:]
+
+	// After potentially discarding up to 3 commitments, we expect all future commitments (at least 2) to be of the expectedLayer
+	require.GreaterOrEqual(t, len(batcherTxs), 2, "Expected at least 2 %v commitments after failover/failback", expectedLayer)
+	for _, batcherTx := range batcherTxs {
+		require.Equal(t, DALayerEigenDA, batcherTx.daLayer,
+			"Invalid commitment in block %d: expected %v, received commitment %s", batcherTx.block, expectedLayer, batcherTx.commitment)
+	}
+}
+
+// See https://specs.optimism.io/experimental/alt-da.html#example-commitments
+const ethDACommitmentPrefix = "0x00"
+const eigenDACommitmentPrefix = "0x010100"
+
+type DALayer string
+
+const (
+	DALayerEth     DALayer = "ethda"
+	DALayerEigenDA DALayer = "eigenda"
+)
+
+type BatcherTx struct {
+	commitment string
+	daLayer    DALayer // commitment starts with respective prefix
+	block      uint64
+}
+
+// HexUint64 is a custom type that can unmarshal from a hex string
+type HexUint64 uint64
+
+// UnmarshalJSON implements the json.Unmarshaler interface
+func (h *HexUint64) UnmarshalJSON(data []byte) error {
+	// Remove quotes from the JSON string
+	hexStr := string(data)
+	hexStr = strings.Trim(hexStr, "\"")
+
+	// Check if it's a hex string
+	if !strings.HasPrefix(hexStr, "0x") {
+		return fmt.Errorf("not a hex string: %s", hexStr)
+	}
+
+	// Parse the hex string (without the 0x prefix)
+	val, err := strconv.ParseUint(hexStr[2:], 16, 64)
+	if err != nil {
+		return err
+	}
+
+	*h = HexUint64(val)
+	return nil
+}
+
+// Fetches all the batch-inbox posted commitments from blockNum (inclusive) to current block.
+func fetchBatcherTxsSinceBlock(gethL1Endpoint string, batchInbox string, blockNum uint64) ([]BatcherTx, error) {
+	// We'll use standard HTTP for GraphQL as it's not directly supported by the rpc package
+	query := fmt.Sprintf(`
+	{
+		"query": "query txInfo { blocks(from:%v) { transactions { to { address } inputData block { number } } } }"
+	}`, blockNum)
+
+	// Make GraphQL request
+	req, err := http.NewRequest("POST", gethL1Endpoint+"/graphql", strings.NewReader(query))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	httpClient := &http.Client{}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Parse the response
+	type GraphQLResponse struct {
+		Data struct {
+			Blocks []struct {
+				Transactions []struct {
+					To struct {
+						Address string `json:"address"`
+					} `json:"to"`
+					InputData string `json:"inputData"`
+					Block     struct {
+						// we use HexUint64 to properly parse the hex strings returned
+						Number HexUint64 `json:"number"`
+					} `json:"block"`
+				} `json:"transactions"`
+			} `json:"blocks"`
+		} `json:"data"`
+	}
+	var graphQLResp GraphQLResponse
+	if err := json.NewDecoder(resp.Body).Decode(&graphQLResp); err != nil {
+		return nil, err
+	}
+	if len(graphQLResp.Data.Blocks) == 0 {
+		// Assume that this is a graphQL query error, that would have returned something like
+		// "errors": [
+		// 	{
+		// 	  "message": "syntax error: unexpected \"\", expecting Ident",
+		// 	}
+		// ]
+		// TODO: prob should just switch to a proper graphql client that can handle these properly
+		return nil, fmt.Errorf("no blocks returned in GraphQL response")
+	}
+
+	// Filter transactions to the batcher address
+	var batcherTxs []BatcherTx
+	for _, block := range graphQLResp.Data.Blocks {
+		for _, tx := range block.Transactions {
+			if strings.EqualFold(tx.To.Address, batchInbox) {
+				var daLayer DALayer
+				if strings.HasPrefix(tx.InputData, eigenDACommitmentPrefix) {
+					daLayer = DALayerEigenDA
+				} else if strings.HasPrefix(tx.InputData, ethDACommitmentPrefix) {
+					daLayer = DALayerEth
+				} else {
+					return nil, fmt.Errorf("unknown commitment prefix: %s", tx.InputData)
+				}
+				batcherTxs = append(batcherTxs, BatcherTx{
+					commitment: tx.InputData,
+					daLayer:    daLayer,
+					block:      uint64(tx.Block.Number),
+				})
+			}
+		}
+	}
+
+	return batcherTxs, nil
+}
+
+// Localhost endpoints for the different services in the enclave
+// that we need to interact with.
+type EnclaveServiceEndpoints struct {
+	OpNodeEndpoint       string `kurtosis:"op-cl-1-op-node-op-geth-op-kurtosis,http"`
+	GethL1Endpoint       string `kurtosis:"el-1-geth-teku,rpc"`
+	EigendaProxyEndpoint string `kurtosis:"da-server-op-kurtosis,http"`
+	// Adding new endpoints is as simple as adding a new field with a kurtosis tag
+	// NewServiceEndpoint   string `kurtosis:"new-service-name,port-name"`
+}
+
+func getEndpointsFromKurtosis(enclaveCtx *enclaves.EnclaveContext) (*EnclaveServiceEndpoints, error) {
+	endpoints := &EnclaveServiceEndpoints{}
+
+	// Get the type of the struct to iterate over fields
+	t := reflect.TypeOf(endpoints).Elem()
+	v := reflect.ValueOf(endpoints).Elem()
+
+	// Iterate over all fields in the struct
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+
+		// Get the kurtosis tag
+		tag := field.Tag.Get("kurtosis")
+		if tag == "" {
+			continue // Skip fields without tags
+		}
+
+		// Parse the tag to get service name and port name
+		parts := strings.Split(tag, ",")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid kurtosis tag format for field %s: %s", field.Name, tag)
+		}
+
+		serviceName := parts[0]
+		portName := parts[1]
+
+		// Get the service context
+		serviceCtx, err := enclaveCtx.GetServiceContext(serviceName)
+		if err != nil {
+			return nil, fmt.Errorf("GetServiceContext for %s: %w", serviceName, err)
+		}
+
+		// Get the port
+		port, ok := serviceCtx.GetPublicPorts()[portName]
+		if !ok {
+			return nil, fmt.Errorf("service %s doesn't expose %s port", serviceName, portName)
+		}
+
+		// Set the endpoint URL in the struct field
+		endpoint := fmt.Sprintf("http://localhost:%d", port.GetNumber())
+		v.Field(i).SetString(endpoint)
+	}
+
+	return endpoints, nil
+}
+
+type EnclaveServiceClients struct {
+	opNodeClient         *rpc.Client
+	gethL1Client         *ethclient.Client
+	proxyMemconfigClient *ProxyMemconfigClient
+}
+
+func getClientsFromEndpoints(endpoints *EnclaveServiceEndpoints) (*EnclaveServiceClients, error) {
+	opNodeClient, err := rpc.Dial(endpoints.OpNodeEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("rpc.Dial: %w", err)
+	}
+
+	gethL1Client, err := ethclient.Dial(endpoints.GethL1Endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("ethclient.Dial: %w", err)
+	}
+
+	proxyMemconfigClient := &ProxyMemconfigClient{
+		Client: memconfig_client.New(&memconfig_client.Config{URL: endpoints.EigendaProxyEndpoint}),
+	}
+
+	return &EnclaveServiceClients{
+		opNodeClient:         opNodeClient,
+		gethL1Client:         gethL1Client,
+		proxyMemconfigClient: proxyMemconfigClient,
+	}, nil
+}
+
+// ProxyMemconfigClient is a wrapper around the memconfig client that adds a Failover method
+// TODO: we should upstream this to eigenda-proxy repo
+type ProxyMemconfigClient struct {
+	*memconfig_client.Client
+}
+
+// Update the proxy's memstore config to start returning 503 errors
+// Note: we have to GetConfig, update it and then UpdateConfig because the client doesn't implement a "patch" method,
+//
+//	even though the API does support it.
+func (c *ProxyMemconfigClient) Failover(ctx context.Context) error {
+	memConfig, err := c.GetConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("GetConfig: %w", err)
+	}
+	memConfig.PutReturnsFailoverError = true
+	_, err = c.UpdateConfig(ctx, memConfig)
+	if err != nil {
+		return fmt.Errorf("UpdateConfig: %w", err)
+	}
+	return nil
+}
+func (c *ProxyMemconfigClient) Failback(ctx context.Context) error {
+	memConfig, err := c.GetConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("GetConfig: %w", err)
+	}
+	memConfig.PutReturnsFailoverError = false
+	_, err = c.UpdateConfig(ctx, memConfig)
+	if err != nil {
+		return fmt.Errorf("UpdateConfig: %w", err)
+	}
+	return nil
+}
