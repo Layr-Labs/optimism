@@ -75,13 +75,13 @@ devnet-test DEVNET *TEST:
 
 # EigenDA devnet that uses eigenda-proxy connected to eigenda holesky testnet network
 [group('eigenda')]
-eigenda-holesky-devnet: (devnet "eigenda-holesky.yaml" "eigenda-secrets.json" "eigenda-holesky")
+eigenda-holesky-devnet-start: (devnet "eigenda-holesky.yaml" "eigenda-secrets.json" "eigenda-holesky")
 [group('eigenda')]
 eigenda-holesky-devnet-clean:
   kurtosis enclave rm eigenda-holesky-devnet --force
 # EigenDA devnet that uses the eigenda-proxy in memstore mode (simulates an eigenda network but generates random certs)
 [group('eigenda')]
-eigenda-memstore-devnet: (devnet "eigenda-memstore.yaml")
+eigenda-memstore-devnet-start: (devnet "eigenda-memstore.yaml")
 [group('eigenda')]
 eigenda-memstore-devnet-clean:
   kurtosis enclave rm eigenda-memstore-devnet --force
@@ -98,12 +98,17 @@ eigenda-memstore-devnet-failback:
   PROXY_ENDPOINT=$(kurtosis port print eigenda-memstore-devnet da-server-op-kurtosis http)
   curl -X PATCH $PROXY_ENDPOINT/memstore/config -d '{"PutReturnsFailoverError": false}'
 [group('eigenda')]
+eigenda-memstore-devnet-grafana:
+  #!/usr/bin/env bash
+  GRAFANA_URL=$(kurtosis port print eigenda-memstore-devnet grafana http)
+  open $GRAFANA_URL
+[group('eigenda')]
 eigenda-memstore-devnet-sync-status:
   #!/usr/bin/env bash
   OPNODE_ENDPOINT=$(kurtosis port print eigenda-memstore-devnet op-cl-1-op-node-op-geth-op-kurtosis http)
   cast rpc optimism_syncStatus --rpc-url $OPNODE_ENDPOINT | jq
 [group('eigenda')]
-eigenda-memstore-devnet-configs-l1-l2:
+eigenda-memstore-devnet-configs:
   #!/usr/bin/env bash
   echo "OP-NODE ROLLUP CONFIG:"
   OPNODE_ENDPOINT=$(kurtosis port print eigenda-memstore-devnet op-cl-1-op-node-op-geth-op-kurtosis http)
@@ -111,6 +116,9 @@ eigenda-memstore-devnet-configs-l1-l2:
   echo "TEKU L1-CL SPEC:"
   TEKU_ENDPOINT=$(kurtosis port print eigenda-memstore-devnet cl-1-teku-geth http)
   curl $TEKU_ENDPOINT/eth/v1/config/spec | jq
+  echo "PROXY MEMSTORE CONFIG:"
+  PROXY_ENDPOINT=$(kurtosis port print eigenda-memstore-devnet da-server-op-kurtosis http)
+  curl $PROXY_ENDPOINT/memstore/config | jq
 # We unfortunately have to restart the batcher in this ugly way right now just to change even a single flag.
 # This is b/c op's kurtosis setup right now is not idempotent so if we change a param in eigenda-memstore.yaml
 # and rerun `just eigenda-memstore-devnet`, the entire devnet gets respun up which takes a long time.
