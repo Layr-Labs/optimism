@@ -101,7 +101,7 @@ func TestFailover(t *testing.T) {
 // Test Harness, which contains all the state needed to run the tests.
 // harness also defines some higher-level "require" methods that are used in the tests.
 type harness struct {
-	endpoints           *EnclaveServiceEndpoints
+	endpoints           *EnclaveServicePublicEndpoints
 	clients             *EnclaveServiceClients
 	batchInboxAddr      common.Address
 	testStartL1BlockNum uint64
@@ -120,7 +120,7 @@ func newHarness(t *testing.T) *harness {
 	enclaveCtx, err := kurtosisCtx.GetEnclaveContext(ctxWithTimeout, enclaveName)
 	require.NoError(t, err, "Error getting enclave context: is enclave %v running?", enclaveName)
 
-	endpoints, err := getEndpointsFromKurtosis(enclaveCtx)
+	endpoints, err := getPublicEndpointsFromKurtosis(enclaveCtx)
 	require.NoError(t, err)
 	t.Logf("Endpoints: %+v", endpoints)
 
@@ -298,8 +298,11 @@ func fetchBatcherTxs(gethL1Endpoint string, batchInbox string, fromBlockNum, toB
 }
 
 // Localhost endpoints for the different services in the enclave
-// that we need to interact with.
-type EnclaveServiceEndpoints struct {
+// that we need to interact with. We store the public localhost endpoints instead
+// of the private enclave endpoints because we need to interact with the services
+// using external shell commands like `cast rpc ...` and `cast geth ...`.
+// The public endpoints are the ones that are exposed to the host machine.
+type EnclaveServicePublicEndpoints struct {
 	OpNodeEndpoint       string `kurtosis:"op-cl-1-op-node-op-geth-op-kurtosis,http"`
 	GethL1Endpoint       string `kurtosis:"el-1-geth-teku,rpc"`
 	EigendaProxyEndpoint string `kurtosis:"da-server-op-kurtosis,http"`
@@ -307,8 +310,14 @@ type EnclaveServiceEndpoints struct {
 	// NewServiceEndpoint   string `kurtosis:"new-service-name,port-name"`
 }
 
-func getEndpointsFromKurtosis(enclaveCtx *enclaves.EnclaveContext) (*EnclaveServiceEndpoints, error) {
-	endpoints := &EnclaveServiceEndpoints{}
+// Constructor for EnclaveServiceEndpoints struct, which assumes a running kurtosis enclave
+// and queries the needed services for their public (localhost) ports, and constructs
+// the struct with the endpoints.
+//
+// This function uses reflection to parse the `kurtosis` tags in the struct fields to get the service name and port name.
+// See the comments in the EnclaveServicePublicEndpoints struct for more details on adding a new endpoint.
+func getPublicEndpointsFromKurtosis(enclaveCtx *enclaves.EnclaveContext) (*EnclaveServicePublicEndpoints, error) {
+	endpoints := &EnclaveServicePublicEndpoints{}
 
 	// Get the type of the struct to iterate over fields
 	t := reflect.TypeOf(endpoints).Elem()
@@ -359,7 +368,7 @@ type EnclaveServiceClients struct {
 	proxyMemconfigClient *ProxyMemconfigClient
 }
 
-func getClientsFromEndpoints(endpoints *EnclaveServiceEndpoints) (*EnclaveServiceClients, error) {
+func getClientsFromEndpoints(endpoints *EnclaveServicePublicEndpoints) (*EnclaveServiceClients, error) {
 	opNodeClient, err := rpc.Dial(endpoints.OpNodeEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("rpc.Dial: %w", err)
