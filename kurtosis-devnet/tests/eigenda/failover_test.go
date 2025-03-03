@@ -52,39 +52,49 @@ func TestFailover(t *testing.T) {
 		}
 	})
 
-	// assume kurtosis is running and is at least at block 10 (just deploying the contracts takes more than 10 blocks)
-	require.GreaterOrEqual(t, harness.testStartL1BlockNum, uint64(10), "Test started too early in the chain")
-	sinceBlock := harness.testStartL1BlockNum - 10
+	// Number of blocks to queried for batcher txs, for each of the initial/failover/failback stages
+	// Test will look at batcher txs between blocks:
+	// - initial altda stage: [testStartL1BlockNum - l1BlocksQueriedForBatcherTxs, testStartL1BlockNum]
+	// - ethDACalldata stage: [afterFailoverFromBlockNum, afterFailoverFromBlockNum + l1BlocksQueriedForBatcherTxs]
+	// - altDA stage: [afterFailbackFromBlockNum, afterFailbackFromBlockNum + l1BlocksQueriedForBatcherTxs]
+	//
+	// After Failover/Failback, will wait for 10 L1 blocks to make sure failover/failback has happened.
+	// Assumption is that a cert is being posted every 2 blocks (hardcoded in batcher config)
+	// TODO: read max-channel-duration from batcher's config instead of assuming 2 blocks
+	l1BlocksQueriedForBatcherTxs := uint64(10)
+
+	// assume kurtosis is running and is at least at block numBlocksBetweenStages
+	require.GreaterOrEqual(t, harness.testStartL1BlockNum, l1BlocksQueriedForBatcherTxs, "Test started too early in the chain")
+	fromBlock := harness.testStartL1BlockNum - l1BlocksQueriedForBatcherTxs
 
 	// 1. Check that the original commitments are EigenDA
-	harness.requireBatcherTxsToBeFromLayer(t, sinceBlock, DALayerEigenDA)
+	harness.requireBatcherTxsToBeFromLayer(t, fromBlock, fromBlock+l1BlocksQueriedForBatcherTxs, DALayerEigenDA)
 
 	// 2. Failover and check that the commitments are now EthDA
 	t.Logf("Failover over... changing proxy's config to return 503 errors")
 	err := harness.clients.proxyMemconfigClient.Failover(ctxWithDeadline)
 	require.NoError(t, err)
 
-	afterFailoverL1BlockNum, err := harness.clients.gethL1Client.BlockNumber(ctxWithDeadline)
+	afterFailoverFromBlockNum, err := harness.clients.gethL1Client.BlockNumber(ctxWithDeadline)
 	require.NoError(t, err)
-	// Wait for 10 L1 blocks. Assumption is that a cert is being posted every 2 blocks.
-	// Failover should take some time so we wait for 10 blocks to be sure some new commitment has started getting posted.
-	// TODO: read max-channel-duration from batcher's config instead of assuming 2 blocks
-	_, err = geth.WaitForBlock(big.NewInt(int64(afterFailoverL1BlockNum)+10), harness.clients.gethL1Client)
+	afterFailoverToBlockNum := afterFailoverFromBlockNum + l1BlocksQueriedForBatcherTxs
+	_, err = geth.WaitForBlock(big.NewInt(int64(afterFailoverToBlockNum)), harness.clients.gethL1Client)
 	require.NoError(t, err)
 
-	harness.requireBatcherTxsToBeFromLayer(t, afterFailoverL1BlockNum, DALayerEth)
+	harness.requireBatcherTxsToBeFromLayer(t, afterFailoverFromBlockNum, afterFailoverToBlockNum, DALayerEth)
 
 	// 3. Failback and check that the commitments are EigenDA again
 	t.Logf("Failing back... changing proxy's config to start processing PUT requests normally again")
 	err = harness.clients.proxyMemconfigClient.Failback(ctxWithDeadline)
 	require.NoError(t, err)
 
-	afterFailbackL1BlockNum, err := harness.clients.gethL1Client.BlockNumber(ctxWithDeadline)
+	afterFailbackFromBlockNum, err := harness.clients.gethL1Client.BlockNumber(ctxWithDeadline)
 	require.NoError(t, err)
-	_, err = geth.WaitForBlock(big.NewInt(int64(afterFailbackL1BlockNum)+10), harness.clients.gethL1Client)
+	afterFailbackToBlockNum := afterFailbackFromBlockNum + l1BlocksQueriedForBatcherTxs
+	_, err = geth.WaitForBlock(big.NewInt(int64(afterFailbackToBlockNum)), harness.clients.gethL1Client)
 	require.NoError(t, err)
 
-	harness.requireBatcherTxsToBeFromLayer(t, afterFailbackL1BlockNum, DALayerEigenDA)
+	harness.requireBatcherTxsToBeFromLayer(t, afterFailbackFromBlockNum, afterFailbackToBlockNum, DALayerEigenDA)
 
 }
 
@@ -139,10 +149,10 @@ func newHarness(t *testing.T) *harness {
 // requireBatcherTxsToBeFromLayer checks that the batcher transactions since startingFromBlockNum are all from the expectedLayer.
 // It allows for up to 3 initial commitments to be of the wrong type, as the failover/failback might not have taken effect yet.
 // It requires that at least 2 commitments of the expected type are present after the failover/failback.
-func (h *harness) requireBatcherTxsToBeFromLayer(t *testing.T, startingFromBlockNum uint64, expectedLayer DALayer) {
-	batcherTxs, err := fetchBatcherTxsSinceBlock(h.endpoints.GethL1Endpoint, h.batchInboxAddr.String(), startingFromBlockNum)
+func (h *harness) requireBatcherTxsToBeFromLayer(t *testing.T, fromBlockNum, toBlockNum uint64, expectedLayer DALayer) {
+	batcherTxs, err := fetchBatcherTxs(h.endpoints.GethL1Endpoint, h.batchInboxAddr.String(), fromBlockNum, toBlockNum)
 	require.NoError(t, err)
-	t.Logf("Fetched %d batcher transactions since block %d", len(batcherTxs), startingFromBlockNum)
+	t.Logf("Fetched %d batcher transactions since block %d", len(batcherTxs), fromBlockNum)
 
 	// We allow first 3 commitments to be of the wrong DA layer, as the failover/failback might not have taken effect yet.
 	wrongCommitmentsToDiscard := 0
@@ -209,12 +219,13 @@ func (h *HexUint64) UnmarshalJSON(data []byte) error {
 }
 
 // Fetches all the batch-inbox posted commitments from blockNum (inclusive) to current block.
-func fetchBatcherTxsSinceBlock(gethL1Endpoint string, batchInbox string, blockNum uint64) ([]BatcherTx, error) {
-	// We'll use standard HTTP for GraphQL as it's not directly supported by the rpc package
+func fetchBatcherTxs(gethL1Endpoint string, batchInbox string, fromBlockNum, toBlockNum uint64) ([]BatcherTx, error) {
+	// We use standard HTTP for GraphQL as it's not directly supported by the rpc package
+	// Visit gethL1Endpoint/graphql/ui to see the schema and test queries
 	query := fmt.Sprintf(`
 	{
-		"query": "query txInfo { blocks(from:%v) { transactions { to { address } inputData block { number } } } }"
-	}`, blockNum)
+		"query": "query txInfo { blocks(from:%v, to:%v) { transactions { to { address } inputData block { number } } } }"
+	}`, fromBlockNum, toBlockNum)
 
 	// Make GraphQL request
 	req, err := http.NewRequest("POST", gethL1Endpoint+"/graphql", strings.NewReader(query))
