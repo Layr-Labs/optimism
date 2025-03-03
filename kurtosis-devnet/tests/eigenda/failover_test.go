@@ -398,8 +398,7 @@ type ProxyMemconfigClient struct {
 
 // Update the proxy's memstore config to start returning 503 errors
 // Note: we have to GetConfig, update it and then UpdateConfig because the client doesn't implement a "patch" method,
-//
-//	even though the API does support it.
+// even though the API does support it.
 func (c *ProxyMemconfigClient) Failover(ctx context.Context) error {
 	memConfig, err := c.GetConfig(ctx)
 	if err != nil {
