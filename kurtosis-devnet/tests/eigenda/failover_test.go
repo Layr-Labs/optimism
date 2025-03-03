@@ -29,7 +29,7 @@ const enclaveName = "eigenda-memstore-devnet"
 // TestFailover tests the failover behavior of the batcher, in response to the proxy returning 503 errors.
 // See https://github.com/Layr-Labs/eigenda-proxy?tab=readme-ov-file#failover-signals for proxy behavior.
 // The proxy's memstore's failover behavior is toggled on and off by this test via a REST api.
-// We then check that the batcher correctly interprets the 503 signals and starts submitting batches to EthDA instead.
+// We then check that the batcher correctly interprets the 503 signals and starts submitting batches to EthDACalldata instead.
 // The test then toggles the failover back off and checks that the batcher starts submitting EigenDA batches again.
 // The batches inbox transactions are queried via geth's GraphQL API.
 //
@@ -37,7 +37,7 @@ const enclaveName = "eigenda-memstore-devnet"
 // That is, if we ever implement more kurtosis tests, they would currently need to be run sequentially.
 //
 // TODO: We will also need to test the failover behavior of the node, which currently doesn't finalize after failover (fixed in https://github.com/Layr-Labs/optimism/pull/23)
-func TestFailover(t *testing.T) {
+func TestFailoverToEthDACalldata(t *testing.T) {
 	deadline, ok := t.Deadline()
 	if !ok {
 		deadline = time.Now().Add(1 * time.Minute)
@@ -74,7 +74,7 @@ func TestFailover(t *testing.T) {
 	// 1. Check that the original commitments are EigenDA
 	harness.requireBatcherTxsToBeFromLayer(t, fromBlock, fromBlock+l1BlocksQueriedForBatcherTxs, DALayerEigenDA)
 
-	// 2. Failover and check that the commitments are now EthDA
+	// 2. Failover and check that the commitments are now EthDACalldata
 	t.Logf("Failover over... changing proxy's config to return 503 errors")
 	err := harness.clients.proxyMemconfigClient.Failover(ctxWithDeadline)
 	require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestFailover(t *testing.T) {
 	_, err = geth.WaitForBlock(big.NewInt(int64(afterFailoverToBlockNum)), harness.clients.gethL1Client)
 	require.NoError(t, err)
 
-	harness.requireBatcherTxsToBeFromLayer(t, afterFailoverFromBlockNum, afterFailoverToBlockNum, DALayerEth)
+	harness.requireBatcherTxsToBeFromLayer(t, afterFailoverFromBlockNum, afterFailoverToBlockNum, DALayerEthCalldata)
 
 	// 3. Failback and check that the commitments are EigenDA again
 	t.Logf("Failing back... changing proxy's config to start processing PUT requests normally again")
@@ -181,13 +181,16 @@ func (h *harness) requireBatcherTxsToBeFromLayer(t *testing.T, fromBlockNum, toB
 }
 
 // See https://specs.optimism.io/experimental/alt-da.html#example-commitments
-const ethDACommitmentPrefix = "0x00"
+// Batcher only supports failing over to calldata txs right now, so this test doesn't test 4844 failover.
+// Note that 4844 txs are completely different and don't use normal txs with a prefix in the calldata,
+// see https://github.com/ethereum-optimism/optimism/blob/develop/op-node/rollup/derive/blob_data_source.go#L134-L137
+const ethDACalldataCommitmentPrefix = "0x00"
 const eigenDACommitmentPrefix = "0x010100"
 
 type DALayer string
 
 const (
-	DALayerEth     DALayer = "ethda"
+	DALayerEthCalldata     DALayer = "ethda-calldata"
 	DALayerEigenDA DALayer = "eigenda"
 )
 
@@ -288,8 +291,8 @@ func fetchBatcherTxs(gethL1Endpoint string, batchInbox string, fromBlockNum, toB
 				var daLayer DALayer
 				if strings.HasPrefix(tx.InputData, eigenDACommitmentPrefix) {
 					daLayer = DALayerEigenDA
-				} else if strings.HasPrefix(tx.InputData, ethDACommitmentPrefix) {
-					daLayer = DALayerEth
+				} else if strings.HasPrefix(tx.InputData, ethDACalldataCommitmentPrefix) {
+					daLayer = DALayerEthCalldata
 				} else {
 					return nil, fmt.Errorf("unknown commitment prefix: %s", tx.InputData)
 				}
