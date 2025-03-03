@@ -160,8 +160,7 @@ func (h *harness) requireBatcherTxsToBeFromLayer(t *testing.T, fromBlockNum, toB
 		if batcherTx.daLayer != expectedLayer {
 			wrongCommitmentsToDiscard++
 		}
-		// as soon as we see 3 ethDA commitments, or an EigenDA commitment, we stop
-		// We expect every other commitment to be EigenDA after failback
+		// as soon as we see a commitmentment from expectedLayer, or 3 from the other layer, we stop discarding.
 		if wrongCommitmentsToDiscard > 2 || batcherTx.daLayer == expectedLayer {
 			break
 		}
