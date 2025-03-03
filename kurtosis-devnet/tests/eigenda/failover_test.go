@@ -321,7 +321,7 @@ func getEndpointsFromKurtosis(enclaveCtx *enclaves.EnclaveContext) (*EnclaveServ
 		// Get the kurtosis tag
 		tag := field.Tag.Get("kurtosis")
 		if tag == "" {
-			continue // Skip fields without tags
+			return nil, fmt.Errorf("field %s doesn't have a kurtosis tag", field.Name)
 		}
 
 		// Parse the tag to get service name and port name
