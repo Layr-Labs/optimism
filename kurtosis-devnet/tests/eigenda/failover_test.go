@@ -218,6 +218,10 @@ func (h *HexUint64) UnmarshalJSON(data []byte) error {
 }
 
 // Fetches all the batch-inbox posted commitments from blockNum (inclusive) to current block.
+// We rely on geth's GraphQL API to fetch the batcher transactions.
+// We could possibly have reused op-node's L1Retriever, but the API felt very derivation-pipeline specific,
+// and there doesn't seem to be a way to reuse it easily for constructing a custom derivation-pipeline with a subset of stages
+// like what we need here. Could consider migrating in the future if we need more complex logic.
 func fetchBatcherTxs(gethL1Endpoint string, batchInbox string, fromBlockNum, toBlockNum uint64) ([]BatcherTx, error) {
 	// We use standard HTTP for GraphQL as it's not directly supported by the rpc package
 	// Visit gethL1Endpoint/graphql/ui to see the schema and test queries
