@@ -190,8 +190,8 @@ const eigenDACommitmentPrefix = "0x010100"
 type DALayer string
 
 const (
-	DALayerEthCalldata     DALayer = "ethda-calldata"
-	DALayerEigenDA DALayer = "eigenda"
+	DALayerEthCalldata DALayer = "ethda-calldata"
+	DALayerEigenDA     DALayer = "eigenda"
 )
 
 type BatcherTx struct {
