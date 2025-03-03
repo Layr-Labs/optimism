@@ -32,6 +32,10 @@ const enclaveName = "eigenda-memstore-devnet"
 // We then check that the batcher correctly interprets the 503 signals and starts submitting batches to EthDA instead.
 // The test then toggles the failover back off and checks that the batcher starts submitting EigenDA batches again.
 // The batches inbox transactions are queried via geth's GraphQL API.
+//
+// Note: because this test relies on modifying the proxy's memstore config, it should be run in isolation.
+// That is, if we ever implement more kurtosis tests, they would currently need to be run sequentially.
+//
 // TODO: We will also need to test the failover behavior of the node, which currently doesn't finalize after failover (fixed in https://github.com/Layr-Labs/optimism/pull/23)
 func TestFailover(t *testing.T) {
 	deadline, ok := t.Deadline()
