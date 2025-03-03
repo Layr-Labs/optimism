@@ -91,7 +91,6 @@ func TestFailover(t *testing.T) {
 // Test Harness, which contains all the state needed to run the tests.
 // harness also defines some higher-level "require" methods that are used in the tests.
 type harness struct {
-	enclaveCtx          *enclaves.EnclaveContext
 	endpoints           *EnclaveServiceEndpoints
 	clients             *EnclaveServiceClients
 	batchInboxAddr      common.Address
@@ -130,7 +129,6 @@ func newHarness(t *testing.T) *harness {
 	require.NoError(t, err)
 
 	return &harness{
-		enclaveCtx:          enclaveCtx,
 		endpoints:           endpoints,
 		clients:             clients,
 		batchInboxAddr:      common.HexToAddress(rollupConfigMap.BatchInboxAddress),
