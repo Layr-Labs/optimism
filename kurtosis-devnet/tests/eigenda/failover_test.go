@@ -164,7 +164,7 @@ func (h *harness) requireBatcherTxsToBeFromLayer(t *testing.T, fromBlockNum, toB
 		if batcherTx.daLayer != expectedLayer {
 			wrongCommitmentsToDiscard++
 		}
-		// as soon as we see a commitmentment from expectedLayer, or 3 from the other layer, we stop discarding.
+		// as soon as we see a commitment from expectedLayer, or 3 from the other layer, we stop discarding.
 		if wrongCommitmentsToDiscard > 2 || batcherTx.daLayer == expectedLayer {
 			break
 		}
