@@ -33,7 +33,7 @@ func TestBatcher_FailoverToEthDA_FallbackToAltDA(t *testing.T) {
 	cfg.DeployConfig.DAResolverRefundPercentage = 0
 	// With these settings, the batcher will post a single commitment per L1 block,
 	// so it's easy to trigger failover and observe the commitment changing on the next L1 block.
-	cfg.BatcherMaxPendingTransactions = 1 // no limit on parallel txs
+	cfg.BatcherMaxPendingTransactions = 1
 	cfg.BatcherMaxConcurrentDARequest = 1
 	cfg.BatcherBatchType = 0
 	// We make channels as small as possible, such that they contain a single commitment.
