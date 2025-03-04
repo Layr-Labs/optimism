@@ -31,15 +31,13 @@ func TestBatcher_FailoverToEthDA_FallbackToAltDA(t *testing.T) {
 	cfg.DeployConfig.DAResolveWindow = 16
 	cfg.DeployConfig.DABondSize = 1000000
 	cfg.DeployConfig.DAResolverRefundPercentage = 0
-	// With these settings, the batcher will post a single commitment per L1 block,
-	// so it's easy to trigger failover and observe the commitment changing on the next L1 block.
+	// Default cfg.BatcherMaxChannelDuration is 1, which means at least one channel is sent per L1 block.
+	// Furthermore, by setting cfg.BatcherMaxPendingTransactions = 1,
+	// we make sure the batcher posts a single commitment per L1 block.
+	// This way it's easy to trigger failover and observe the commitment changing on the next L1 block.
 	cfg.BatcherMaxPendingTransactions = 1
 	cfg.BatcherMaxConcurrentDARequest = 1
 	cfg.BatcherBatchType = 0
-	// We make channels as small as possible, such that they contain a single commitment.
-	// This is because failover to ethDA happens on a per-channel basis (each new channel is sent to altDA first).
-	// Hence, we can quickly observe the failover (to ethda) and fallback (to altda) behavior.
-	// cfg.BatcherMaxL1TxSizeBytes = 1200
 	// currently altda commitments can only be sent as calldata
 	cfg.DataAvailabilityType = flags.CalldataType
 
