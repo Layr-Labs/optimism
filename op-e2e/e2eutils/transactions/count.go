@@ -21,6 +21,8 @@ func TransactionsBySenderCount(block *types.Block, sender common.Address) (int64
 	return txCount, nil
 }
 
+// TransactionsBySender returns the transactions (possibly none) in the block that were sent by the given sender.
+// It returns an error if any of the transactions in the block have an invalid signature.
 func TransactionsBySender(block *types.Block, sender common.Address) ([]*types.Transaction, error) {
 	txs := make([]*types.Transaction, 0)
 	for _, tx := range block.Transactions() {
