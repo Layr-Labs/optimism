@@ -66,15 +66,13 @@ func TestBatcher_FailoverToEthDA_FallbackToAltDA(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(batcherTxs)) // sanity check: ensure BatcherMaxPendingTransactions=1 is working
 		batcherTx := batcherTxs[0]
-		if batcherTx.Data()[0] == 1 {
-			t.Log("blockL1", blockNumL1, "batcherTxType", "altda")
-		} else if batcherTx.Data()[0] == 0 {
-			t.Log("blockL1", blockNumL1, "batcherTxType", "ethda")
-		} else {
-			t.Fatalf("unexpected batcherTxType: %v", batcherTx.Data()[0])
-		}
 		if batcherTx.Data()[0] == byte(params.DerivationVersion0) {
 			countEthDACommitment++
+			t.Log("blockL1", blockNumL1, "batcherTxType", "ethda")
+		} else if batcherTx.Data()[0] == byte(params.DerivationVersion1) {
+			t.Log("blockL1", blockNumL1, "batcherTxType", "altda")
+		} else {
+			t.Fatalf("unexpected batcherTxType: %v", batcherTx.Data()[0])
 		}
 	}
 	require.Equal(t, nChannelsFailover, countEthDACommitment, "Expected %v ethDA commitments, got %v", nChannelsFailover, countEthDACommitment)
