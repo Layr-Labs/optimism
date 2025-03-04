@@ -88,7 +88,9 @@ func WaitForTransaction(hash common.Hash, client *ethclient.Client, timeout time
 }
 
 // WaitForBlockWithTxFromSender waits for a block with a transaction from a specific sender address.
-// It starts from the current block and checks the next nBlocks blocks.
+// It starts from the current block and checks up to the next nBlocks blocks.
+// As soon as it finds a block that contains a tx from sender, it returns that block.
+// If no such block is found in the next nBlocks blocks, it returns an error.
 func WaitForBlockWithTxFromSender(sender common.Address, client *ethclient.Client, nBlocks uint64) (*types.Block, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
