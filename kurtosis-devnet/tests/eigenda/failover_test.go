@@ -117,7 +117,7 @@ func TestFailoverToEthDACalldata(t *testing.T) {
 // Test Harness, which contains all the state needed to run the tests.
 // harness also defines some higher-level "require" methods that are used in the tests.
 type harness struct {
-	log                 log.Logger
+	logger              log.Logger
 	endpoints           *EnclaveServicePublicEndpoints
 	clients             *EnclaveServiceClients
 	batchInboxAddr      common.Address
@@ -125,7 +125,7 @@ type harness struct {
 }
 
 func newHarness(t *testing.T) *harness {
-	log := testlog.Logger(t, slog.LevelInfo)
+	logger := testlog.Logger(t, slog.LevelInfo)
 
 	// We leave 20 seconds to build the entire testHarness.
 	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -143,7 +143,7 @@ func newHarness(t *testing.T) *harness {
 	require.NoError(t, err)
 	t.Logf("Endpoints: %+v", endpoints)
 
-	clients, err := getClientsFromEndpoints(ctxWithTimeout, log, endpoints)
+	clients, err := getClientsFromEndpoints(ctxWithTimeout, logger, endpoints)
 	require.NoError(t, err)
 
 	// Get the batch inbox address from the rollup config
@@ -155,7 +155,7 @@ func newHarness(t *testing.T) *harness {
 	require.NoError(t, err)
 
 	return &harness{
-		log:                 log,
+		logger:              logger,
 		endpoints:           endpoints,
 		clients:             clients,
 		batchInboxAddr:      rollupConfig.BatchInboxAddress,
@@ -394,13 +394,13 @@ type EnclaveServiceClients struct {
 	proxyMemconfigClient *ProxyMemconfigClient
 }
 
-func getClientsFromEndpoints(ctx context.Context, log log.Logger, endpoints *EnclaveServicePublicEndpoints) (*EnclaveServiceClients, error) {
-	opNodeClient, err := dial.DialRollupClientWithTimeout(ctx, 10*time.Second, log, endpoints.OpNodeEndpoint)
+func getClientsFromEndpoints(ctx context.Context, logger log.Logger, endpoints *EnclaveServicePublicEndpoints) (*EnclaveServiceClients, error) {
+	opNodeClient, err := dial.DialRollupClientWithTimeout(ctx, 10*time.Second, logger, endpoints.OpNodeEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("dial.DialRollupClientWithTimeout: %w", err)
 	}
 
-	opGethClient, err := dial.DialEthClientWithTimeout(ctx, 10*time.Second, log, endpoints.OpGethEndpoint)
+	opGethClient, err := dial.DialEthClientWithTimeout(ctx, 10*time.Second, logger, endpoints.OpGethEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("dial.DialEthClientWithTimeout: %w", err)
 	}
