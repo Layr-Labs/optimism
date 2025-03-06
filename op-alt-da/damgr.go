@@ -118,7 +118,10 @@ func (d *DA) updateFinalizedHead(l1Finalized eth.L1BlockRef) {
 	d.l1FinalizedHead = l1Finalized
 	// Prune the state to the finalized head
 	lastPrunedCommIncBlock := d.state.Prune(l1Finalized.ID())
-	d.log.Debug("updateFinalizedHead", "currFinalizedHead", d.finalizedHead.Number, "lastPrunedCommIncBlock", lastPrunedCommIncBlock.Number, "l1Finalized", l1Finalized.Number)
+	d.log.Debug("updateFinalizedHead",
+		"currFinalizedHead", d.finalizedHead.Number,
+		"lastPrunedCommIncBlock", lastPrunedCommIncBlock.Number,
+		"l1Finalized", l1Finalized.Number)
 	// If a commitment was pruned, set the finalized head to that commitment's inclusion block
 	// When no commitments are left to be pruned (one example is if we have failed over to ethda)
 	// then updateFinalizedFromL1 becomes the main driver of the finalized head.
