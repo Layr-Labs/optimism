@@ -388,9 +388,14 @@ func getPublicEndpointsFromKurtosis(enclaveCtx *enclaves.EnclaveContext) (*Encla
 }
 
 type EnclaveServiceClients struct {
-	opNodeClient         *sources.RollupClient
-	opGethClient         *ethclient.Client
-	gethL1Client         *ethclient.Client
+	// opNode and opGeth are the L2 clients for the rollup.
+	opNodeClient *sources.RollupClient
+	// opGeth is the client for the L2 execution layer client.
+	opGethClient *ethclient.Client
+	// gethL1 is the client for the L1 chain execution layer client.
+	gethL1Client *ethclient.Client
+	// proxyMemconfigClient is the client for the eigenda-proxy's memstore config API.
+	// It allows us to toggle the proxy's failover behavior.
 	proxyMemconfigClient *ProxyMemconfigClient
 }
 
