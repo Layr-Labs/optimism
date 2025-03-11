@@ -91,7 +91,9 @@ Available recipes:
 
 ## Releases and Branching Strategy
 
-Our main development branch, `eigenda-develop`, contains a linear history with new feature work and fixes, as well as upstream merges. To make downstream integrations easier, we create release-specific branches which contain cleaned up history of commits on top of a specific upstream release. For example, the second eigenda-fork release in the below picture would be named `op-batcher/v1.11.2-eigenda.2`, and will consist of a cleaned-up history of commits (one per feature/service pair) on top of the upstream [op-batcher/v1.11.2](https://github.com/ethereum-optimism/optimism/releases/tag/op-batcher%2Fv1.11.2) release. We will strive to make our releases on top of op [production releases](https://github.com/ethereum-optimism/optimism?tab=readme-ov-file#production-releases), unless an urgent fix is needed.
+Our main development branch, `eigenda-develop`, contains a linear history with new feature work and fixes, as well as upstream merges. We maintain this branch to be able to track the entire history of our fork changes. It might also be useful for some teams who want to use our fork directly as their upstream, so that they can just merge/rebase our latest changes (which will incorporate the OP changes as well).
+
+For teams that want/need more flexibility in our they manage their own fork, we also create release-specific branches which contain cleaned up history of commits on top of a specific upstream release. For example, the second eigenda-fork release in the below picture would be named `op-batcher/v1.11.2-eigenda.2`, and will consist of a cleaned-up history of commits (one per feature/service pair) on top of the upstream [op-batcher/v1.11.2](https://github.com/ethereum-optimism/optimism/releases/tag/op-batcher%2Fv1.11.2) release. We will strive to make our releases on top of op [production releases](https://github.com/ethereum-optimism/optimism?tab=readme-ov-file#production-releases), unless an urgent fix is needed.
 
 ![](./assets/fork-branching-and-releases.png)
 
