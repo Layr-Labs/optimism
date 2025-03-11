@@ -61,7 +61,7 @@ OP uses circleci for CI, but we migrated to github actions for this fork. The un
 
 ### Unit Tests
 
-For each feature we add simple unit tests where fits.
+For each feature we add simple unit tests where applicable.
 
 ### op-e2e Tests
 
