@@ -2,6 +2,9 @@
 
 # EigenDA powered Optimism-Fork
 
+[![golang](https://github.com/Layr-Labs/optimism/actions/workflows/test-golang.yml/badge.svg)](https://github.com/Layr-Labs/optimism/actions/workflows/test-golang.yml)
+[![kurtosis](https://github.com/Layr-Labs/optimism/actions/workflows/kurtosis-devnet.yml/badge.svg)](https://github.com/Layr-Labs/optimism/actions/workflows/kurtosis-devnet.yml)
+
 This is repo contains our fork of [optimism](https://github.com/ethereum-optimism/optimism) to support EigenDA.
 
 - [EigenDA powered Optimism-Fork](#eigenda-powered-optimism-fork)
