@@ -94,3 +94,5 @@ Available recipes:
 Our main development branch, `eigenda-develop`, contains a linear history with new feature work and fixes, as well as upstream merges. To make downstream integrations easier, we create release-specific branches which contain cleaned up history of commits on top of a specific upstream release. For example, the second eigenda-fork release in the below picture would be named `op-batcher/v1.11.2-eigenda.2`, and will consist of a cleaned-up history of commits (one per feature/service pair) on top of the upstream [op-batcher/v1.11.2](https://github.com/ethereum-optimism/optimism/releases/tag/op-batcher%2Fv1.11.2) release. We will strive to make our releases on top of op [production releases](https://github.com/ethereum-optimism/optimism?tab=readme-ov-file#production-releases), unless an urgent fix is needed.
 
 ![](./assets/fork-branching-and-releases.png)
+
+Fork developers should consult the [Fork Release Runbook](./docs/handbook/fork-release-runbook.md) for more details on how to make a new release.
