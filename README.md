@@ -65,7 +65,7 @@ For each feature we add simple unit tests where applicable.
 
 ### op-e2e Tests
 
-We also add integration tests using op-e2e's framework. These tests are very useful as they are run purely in golang in a single process with very fast block times, but they are limited in that proxy is not spin up and the batcher available there is only a fake.
+We also add integration tests using op-e2e's framework. These tests are very useful as they are run purely in golang in a single process with very fast block times, but they are limited in that proxy is not spun up and the batcher available there is only a fake.
 
 ### Kurtosis Devnet Tests
 
