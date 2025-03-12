@@ -59,7 +59,7 @@ func newChannel(log log.Logger, metr metrics.Metricer, cfg ChannelConfig, rollup
 // We cannot submit it directly to L1 yet, as we need to make sure the commitments are submitted in order,
 // according to the holocene rules. Therefore, we cache the commitment and let the channelManager
 // decide when to pull them out of the channel and send them to L1.
-func (s *channel) CacheAltDACommitment(txData txData, commitment altda.CommitmentData) {
+func (c *channel) CacheAltDACommitment(txData txData, commitment altda.CommitmentData) {
 	if commitment == nil {
 		panic("expected non-nil commitment")
 	}
@@ -67,32 +67,46 @@ func (s *channel) CacheAltDACommitment(txData txData, commitment altda.Commitmen
 		panic("expected txData to have frames")
 	}
 	txData.altDACommitment = commitment
-	s.log.Debug("caching altDA commitment", "frame", txData.frames[0].id.frameNumber, "commitment", commitment.String())
-	s.altDACommitments[txData.frames[0].id.frameNumber] = txData
+	c.log.Debug("caching altDA commitment", "frame", txData.frames[0].id.frameNumber, "commitment", commitment.String())
+	c.altDACommitments[txData.frames[0].id.frameNumber] = txData
 }
 
-func (s *channel) rewindAltDAFrameCursor(txData txData) {
+func (c *channel) rewindAltDAFrameCursor(txData txData) {
 	if len(txData.frames) == 0 {
 		panic("expected txData to have frames")
 	}
-	s.altDAFrameCursor = txData.frames[0].id.frameNumber
+	c.altDAFrameCursor = txData.frames[0].id.frameNumber
 }
 
-func (s *channel) AltDASubmissionFailed(id string) {
+// AltDASubmissionFailed records an AltDA blob dispersal as having failed.
+// It rewinds the channelBuilder's frameCursor to the first frame of the failed txData,
+// so that the frames can be resubmitted. failoverToEthDA should be set to true when using altDA
+// and altDA is down. This will switch the channel to submit frames to ethDA instead.
+// TODO: add a metric for altDA submission failures.
+func (c *channel) AltDASubmissionFailed(id string, failoverToEthDA bool) {
 	// We coopt TxFailed to rewind the frame cursor.
 	// This will force a resubmit of all the following frames as well,
 	// even if they had already successfully been submitted and their commitment cached.
 	// Ideally we'd have another way but for simplicity and to not tangle the altda code
 	// too much with the non altda code, we reuse the FrameCursor feature.
-	// TODO: is there a better abstraction for altda channels? FrameCursors are not well suited
+	// TODO: Is there a better abstraction for altda channels? FrameCursors are not well suited
 	//       since frames do not have to be sent in order to the altda, only their commitment does.
-	s.TxFailed(id)
+	c.TxFailed(id)
+	if failoverToEthDA {
+		// We failover to calldata txs because in altda mode the channel and channelManager
+		// are configured to use a calldataConfigManager, as opposed to DynamicEthChannelConfig
+		// which can use both calldata and blobs. Failover should happen extremely rarely,
+		// and is only used while the altDA is down, so we can afford to be inefficient here.
+		// TODO: figure out how to switch to blobs/auto instead. Might need to make
+		// batcherService.initChannelConfig function stateless so that we can reuse it.
+		c.log.Info("Failing over to calldata txs", "id", c.ID())
+		c.cfg.DaType = DaTypeCalldata
+	}
 }
 
 // TxFailed records a transaction as failed. It will attempt to resubmit the data
-// in the failed transaction. failoverToEthDA should be set to true when using altDA
-// and altDA is down. This will switch the channel to submit frames to ethDA instead.
-func (c *channel) TxFailed(id string, failoverToEthDA bool) {
+// in the failed transaction.
+func (c *channel) TxFailed(id string) {
 	if data, ok := c.pendingTransactions[id]; ok {
 		c.log.Trace("marked transaction as failed", "id", id)
 		if data.altDACommitment != nil {
@@ -110,16 +124,6 @@ func (c *channel) TxFailed(id string, failoverToEthDA bool) {
 		delete(c.pendingTransactions, id)
 	} else {
 		c.log.Warn("unknown transaction marked as failed", "id", id)
-	}
-	if failoverToEthDA {
-		// We failover to calldata txs because in altda mode the channel and channelManager
-		// are configured to use a calldataConfigManager, as opposed to DynamicEthChannelConfig
-		// which can use both calldata and blobs. Failover should happen extremely rarely,
-		// and is only used while the altDA is down, so we can afford to be inefficient here.
-		// TODO: figure out how to switch to blobs/auto instead. Might need to make
-		// batcherService.initChannelConfig function stateless so that we can reuse it.
-		c.log.Info("Failing over to calldata txs", "id", c.ID())
-		c.cfg.DaType = DaTypeCalldata
 	}
 	c.metr.RecordBatchTxFailed()
 }

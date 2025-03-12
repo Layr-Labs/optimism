@@ -115,25 +115,25 @@ func (s *channelManager) CacheAltDACommitment(txData txData, commitment altda.Co
 
 // AltDASubmissionFailed marks a DA submission as having failed to be submitted to the DA layer.
 // The frames will be pushed back into the corresponding channel such that they can be pulled again by the
-// driver main loop and resent to the DA layer.
-func (s *channelManager) AltDASubmissionFailed(_id txID) {
+// driver main loop and resent to the DA layer. failoverToEthDA should be set to true when using altDA
+// and altDA is down. This will switch the channel to submit frames to ethDA instead.
+func (s *channelManager) AltDASubmissionFailed(_id txID, failoverToEthDA bool) {
 	id := _id.String()
 	if channel, ok := s.txChannels[id]; ok {
 		delete(s.txChannels, id)
-		channel.AltDASubmissionFailed(id)
+		channel.AltDASubmissionFailed(id, failoverToEthDA)
 	} else {
 		s.log.Warn("transaction from unknown channel marked as failed", "id", id)
 	}
 }
 
 // TxFailed records a transaction as failed. It will attempt to resubmit the data
-// in the failed transaction. failoverToEthDA should be set to true when using altDA
-// and altDA is down. This will switch the channel to submit frames to ethDA instead.
-func (s *channelManager) TxFailed(_id txID, failoverToEthDA bool) {
+// in the failed transaction.
+func (s *channelManager) TxFailed(_id txID) {
 	id := _id.String()
 	if channel, ok := s.txChannels[id]; ok {
 		delete(s.txChannels, id)
-		channel.TxFailed(id, failoverToEthDA)
+		channel.TxFailed(id)
 	} else {
 		s.log.Warn("transaction from unknown channel marked as failed", "id", id)
 	}
