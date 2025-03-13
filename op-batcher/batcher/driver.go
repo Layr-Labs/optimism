@@ -840,12 +840,15 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 			// This will send the txdata to the DA Provider and store the commitment in the channelMgr.
 			// Next time this txdata is requested, we will have the commitment and can send it to the L1 (else branch below).
 			l.publishToAltDAAndStoreCommitment(txdata, daGroup)
-		} else {
-			// This means the txdata was already sent to the DA Provider and we have the commitment
-			// so we can send the commitment to the L1
-			l.Log.Info("Sending altda commitment to L1", "commitment", txdata.altDACommitment, "tx", txdata.ID())
-			candidate = l.calldataTxCandidate(txdata.altDACommitment.TxData())
+			// We return here because publishToAltDA is an async operation; the commitment
+			// is not yet ready to be submitted to the L1.
+			return nil
 		}
+		// This means the txdata was already sent to the DA Provider and we have the commitment
+		// so we can send the commitment to the L1
+		l.Log.Info("Sending altda commitment to L1", "commitment", txdata.altDACommitment, "tx", txdata.ID())
+		candidate = l.calldataTxCandidate(txdata.altDACommitment.TxData())
+
 	case DaTypeBlob:
 		if candidate, err = l.blobTxCandidate(txdata); err != nil {
 			// We could potentially fall through and try a calldata tx instead, but this would
