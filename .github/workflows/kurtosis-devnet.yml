@@ -89,7 +89,7 @@ jobs:
           }
           EOF
         working-directory: kurtosis-devnet
-      - run: just eigenda-devnet-start
-        working-directory: kurtosis-devnet config.json
+      - run: just eigenda-devnet-start config.json
+        working-directory: kurtosis-devnet
       - run: just eigenda-devnet-test
         working-directory: kurtosis-devnet
