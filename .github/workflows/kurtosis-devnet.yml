@@ -17,6 +17,7 @@ jobs:
   run_op_eigenda_holesky_devnet:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false # run all matrix jobs even if one fails
       matrix:
         concurrentRequests: [1, 10]
         # TODO: we'll need a load-generator to generate traffic to test these large blobs (10 frames of size 10Kb each)
@@ -56,6 +57,7 @@ jobs:
 
   run_op_eigenda_memstore_devnet:
     strategy:
+      fail-fast: false # run all matrix jobs even if one fails
       matrix:
         concurrentRequests: [1, 10]
         # TODO: we'll need a load-generator to generate traffic to test these large blobs (10 frames of size 10Kb each)
@@ -87,6 +89,6 @@ jobs:
           }
           EOF
       - run: just eigenda-devnet-start
-        working-directory: kurtosis-devnet
+        working-directory: kurtosis-devnet config.json
       - run: just eigenda-devnet-test
         working-directory: kurtosis-devnet
