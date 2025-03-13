@@ -26,9 +26,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// All tests are run in the context of the eigenda-memstore-devnet enclave.
+// All tests are run in the context of the eigenda-devnet enclave.
 // We assume that this enclave is already running.
-const enclaveName = "eigenda-memstore-devnet"
+const enclaveName = "eigenda-devnet"
 
 // TestFailover tests the failover behavior of the batcher, in response to the proxy returning 503 errors.
 // See https://github.com/Layr-Labs/eigenda-proxy?tab=readme-ov-file#failover-signals for proxy behavior.
@@ -135,7 +135,7 @@ func newHarness(t *testing.T) *harness {
 	kurtosisCtx, err := kurtosis_context.NewKurtosisContextFromLocalEngine()
 	require.NoError(t, err)
 
-	// Get the eigenda-memstore-devnet enclave (assuming it's already running)
+	// Get the `enclaveName` enclave context (assuming it's already running)
 	enclaveCtx, err := kurtosisCtx.GetEnclaveContext(ctxWithTimeout, enclaveName)
 	require.NoError(t, err, "Error getting enclave context: is enclave %v running?", enclaveName)
 
