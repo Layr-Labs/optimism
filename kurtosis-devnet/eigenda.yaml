@@ -7,9 +7,9 @@
 {{- $context := or . (dict)}}
 # TODO: I hate yaml templating... should really move to something more reasonable. CUE perhaps?
 # use proxy by default, otherwise connect with eigenda holesky backend
-{{- $useProxyMemstore := dig "useProxyMemstore" true $context }}
-{{- $eigendaBackendSignerKey := dig "secrets" "eigenda.signer-private-key-hex" "" $context }}
-{{- $eigendaBackendEthRpc := dig "secrets" "eigenda.eth_rpc" "" $context }}
+{{- $useProxyMemstore := dig "eigenda-proxy" "useMemstore" true $context }}
+{{- $eigendaBackendSignerKey := dig "eigenda-proxy" "secrets" "eigenda.signer-private-key-hex" "" $context }}
+{{- $eigendaBackendEthRpc := dig "eigenda-proxy" "secrets" "eigenda.eth_rpc" "" $context }}
 {{- if not $useProxyMemstore}}
   # make sure the secrets are populated when using eigenda-holesky backend
   {{- if or (eq $eigendaBackendSignerKey "") (eq $eigendaBackendEthRpc "") }}
