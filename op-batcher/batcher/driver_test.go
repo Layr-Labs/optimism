@@ -172,6 +172,7 @@ func altDASetup(t *testing.T, log log.Logger) (*BatchSubmitter, *mockL2EndpointP
 		CompressorConfig: compressor.Config{
 			Kind: compressor.NoneKind,
 		},
+		DaType: DaTypeAltDA,
 	}
 	mockAltDAClient := altda.NewCountingGenericCommitmentMockDAClient(log.With("subsystem", "da-client"))
 	return NewBatchSubmitter(DriverSetup{
