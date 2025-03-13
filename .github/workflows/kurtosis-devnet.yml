@@ -78,7 +78,7 @@ jobs:
           cat > config.json << EOF
           {
             "eigenda-proxy": {
-              "useMemstore": true,
+              "useMemstore": true
             },
             "batcher": {
               "altda.max-concurrent-da-requests": ${{ matrix.concurrentRequests }},
