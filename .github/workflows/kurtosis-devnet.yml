@@ -12,6 +12,25 @@ env:
   MISE_VERSION: 2024.12.14
 
 jobs:
+  # Tests that run against a kurtosis devnet that uses the proxy in memstore mode.
+  run_op_eigenda_memstore_devnet:
+    strategy:
+      fail-fast: false # run all matrix jobs even if one fails
+      matrix:
+        # This list should be kept up-to-date with the files in eigenda-template-values
+        valuesFile: ["memstore-sequential-small-blobs.json, memstore-concurrent-large-blobs.json"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          version: ${{ env.MISE_VERSION }}
+          experimental: true
+      - run: just eigenda-devnet-start eigenda-template-values/${{ matrix.valuesFile }}
+        working-directory: kurtosis-devnet
+      - run: just eigenda-devnet-test-memstore
+        working-directory: kurtosis-devnet
+
   # This is an optimism devnet which talks to the eigenda holesky testnet via an eigenda-proxy.
   # TODO: we should connect this to an eigenda kurtosis devnet instead of using our holesky testnet.
   run_op_eigenda_holesky_devnet:
@@ -19,10 +38,8 @@ jobs:
     strategy:
       fail-fast: false # run all matrix jobs even if one fails
       matrix:
-        concurrentRequests: [1, 10]
-        # TODO: we'll need a load-generator to generate traffic to test these large blobs (10 frames of size 10Kb each)
-        targetFrames: [1, 10]
-        txSize: [1000, 10000]
+        # This list should be kept up-to-date with the files in eigenda-template-values
+        valuesFile: ["memstore-sequential-small-blobs.json, memstore-concurrent-large-blobs.json"]
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
@@ -31,65 +48,19 @@ jobs:
           experimental: true
       # Needed by the just eigenda-devnet command below
       # This config gets injected into the eigenda.yaml kurtosis template config file
-      - name: Create EigenDA secrets file
+      - name: Update memstore values file to use holesky (including needed secrets)
         run: |
-          cat > config.json << EOF
-          {
+          jq --argjson newconfig '{
             "eigenda-proxy": {
               "useMemstore": false,
               "secrets": {
                 "eigenda.signer-private-key-hex": "${{ secrets.EIGENDA_V1_HOLESKY_TESTNET_SIGNER_KEY }}",
                 "eigenda.eth_rpc": "https://ethereum-holesky-rpc.publicnode.com"
               }
-            },
-            "batcher": {
-              "altda.max-concurrent-da-requests": ${{ matrix.concurrentRequests }},
-              "target-num-frames": ${{ matrix.targetFrames }},
-              "max-l1-tx-size-bytes": ${{ matrix.txSize }},
-              "batch-type": 0
             }
-          }
-          EOF
+          }' '. *= $newconfig' eigenda-template-values/memstore-sequential-small-blobs.json > holesky-config.json
         working-directory: kurtosis-devnet
-      - run: just eigenda-devnet-start config.json
+      - run: just eigenda-devnet-start holesky-config.json
         working-directory: kurtosis-devnet
-      # TODO: add holesky tests (right now only test is failover which requires memstore)
-
-  run_op_eigenda_memstore_devnet:
-    strategy:
-      fail-fast: false # run all matrix jobs even if one fails
-      matrix:
-        concurrentRequests: [1, 10]
-        # TODO: we'll need a load-generator to generate traffic to test these large blobs (10 frames of size 10Kb each)
-        targetFrames: [1, 10]
-        txSize: [1000, 10000]
-        batchType: [0, 1]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-        with:
-          version: ${{ env.MISE_VERSION }}
-          experimental: true
-      # Needed by the just eigenda-devnet command below
-      # This config gets injected into the eigenda.yaml kurtosis template config file
-      - name: Create EigenDA secrets file
-        run: |
-          cat > config.json << EOF
-          {
-            "eigenda-proxy": {
-              "useMemstore": true
-            },
-            "batcher": {
-              "altda.max-concurrent-da-requests": ${{ matrix.concurrentRequests }},
-              "target-num-frames": ${{ matrix.targetFrames }},
-              "max-l1-tx-size-bytes": ${{ matrix.txSize }},
-              "batch-type": ${{ matrix.batchType }}
-            }
-          }
-          EOF
-        working-directory: kurtosis-devnet
-      - run: just eigenda-devnet-start config.json
-        working-directory: kurtosis-devnet
-      - run: just eigenda-devnet-test
+      - run: just eigenda-devnet-test-holesky
         working-directory: kurtosis-devnet
