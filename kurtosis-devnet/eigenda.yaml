@@ -75,6 +75,8 @@ optimism_package:
           - '{{ dig "batcher" "max-l1-tx-size-bytes" 1000 $context }}'
           - --batch-type
           - '{{ dig "batcher" "batch-type" 1 $context }}'
+          - --throttle-threshold=500_000 # start throttling after 500KB of blocks backlog
+          - --throttle-block-size=1000 # throttle op-geth blocks to 1000 gas
       proposer_params:
         image: {{ localDockerImage "op-proposer" }}
         extra_params: []
@@ -92,8 +94,6 @@ optimism_package:
         cmd:
           - --addr=0.0.0.0
           - --port=3100
-          - --throttle-threshold=500_000 # start throttling after 500KB of blocks backlog
-          - --throttle-block-size=1000 # throttle op-geth blocks to 1000 gas
         {{- if $useProxyMemstore }}
           - --memstore.enabled
           - --memstore.expiration=30m
