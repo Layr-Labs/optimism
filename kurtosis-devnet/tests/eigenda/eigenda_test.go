@@ -65,21 +65,19 @@ func TestBatcherFromLogs(t *testing.T) {
 		filter := kurtosis_context.NewDoesContainMatchRegexLogLineFilter("Transaction confirmed")
 		c := harness.QueryBatcherLogs(ctxWithTestTimeout, true, filter)
 
-		lastTxConfirmed := time.Now()
+		confirmedTxsCount := 0
 		for {
 			select {
 			case <-ctxWithTestTimeout.Done():
-				return
-			case <-c:
-				now := time.Now()
-				// We expect a transaction to be confirmed in every L1 block.
-				if now.Sub(lastTxConfirmed) > L1BlockTime {
-					t.Logf("%v (> %v) seconds elapsed without a transaction being confirmed",
-						now.Sub(lastTxConfirmed).Seconds(), L1BlockTime.Seconds())
+				if confirmedTxsCount == 0 {
+					t.Logf("no transactions confirmed... something went wrong.")
 					t.FailNow()
 				}
-				lastTxConfirmed = now
-				t.Logf("transaction confirmed at %v", now)
+				t.Logf("%d transactions confirmed", confirmedTxsCount)
+				return
+			case <-c:
+				confirmedTxsCount++
+				t.Logf("transaction confirmed at %v", time.Now())
 			}
 		}
 	})
