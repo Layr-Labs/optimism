@@ -61,9 +61,13 @@ optimism_package:
       batcher_params:
         image: {{ localDockerImage "op-batcher" }}
         extra_params:
-          # failover tests are currently hardcoded to 2s so we can't make this configurable
-          - --max-channel-duration=2
+          - --max-channel-duration
+          - '{{ dig "batcher" "max-channel-duration" 2 $context }}'
           - --altda.max-concurrent-da-requests
+          - '{{ dig "batcher" "altda.max-concurrent-da-requests" 1 $context }}'
+          # max-pending-tx should be same as altda.max-concurrent-da-requests given that each commitment is sent as a single l1 tx right now.
+          # See https://github.com/ethereum-optimism/SUPs/pull/1 for progress on batching commitments.
+          - --max-pending-tx
           - '{{ dig "batcher" "altda.max-concurrent-da-requests" 1 $context }}'
           - --target-num-frames
           - '{{ dig "batcher" "target-num-frames" 1 $context }}'
@@ -86,10 +90,10 @@ optimism_package:
       da_server_params:
         image: ghcr.io/layr-labs/eigenda-proxy:v1.6.5
         cmd:
-          - --addr
-          - 0.0.0.0
-          - --port
-          - "3100"
+          - --addr=0.0.0.0
+          - --port=3100
+          - --throttle-threshold=500_000 # start throttling after 500KB of blocks backlog
+          - --throttle-block-size=1000 # throttle op-geth blocks to 1000 gas
         {{- if $useProxyMemstore }}
           - --memstore.enabled
           - --memstore.expiration=30m

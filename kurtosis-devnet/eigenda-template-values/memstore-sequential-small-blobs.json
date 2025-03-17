@@ -7,6 +7,7 @@
     }
   },
   "batcher": {
+    "max-channel-duration": 10,
     "altda.max-concurrent-da-requests": 1,
     "target-num-frames": 1,
     "max-l1-tx-size-bytes": 1000,

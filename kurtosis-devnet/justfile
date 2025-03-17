@@ -75,13 +75,37 @@ devnet-test DEVNET *TEST:
 
 # Devnet recipes
 
+##### These are the main eigenda commands used by CI and automated tests #####
+
 # Start an EigenDA devnet with the given values file (see options in eigenda-template-values/).
 # The devnet will be named "eigenda-devnet" by default, but you can override this with the NAME argument.
+# We also start a tx-fuzzer separately, since the optimism-package doesn't currently have that configurable as part of its package.
 [group('eigenda')]
-eigenda-devnet-start VALUES_FILE="eigenda-template-values/memstore.json" ENCLAVE_PREFIX="eigenda": (devnet "eigenda.yaml" VALUES_FILE ENCLAVE_PREFIX)
+eigenda-devnet-start VALUES_FILE="eigenda-template-values/memstore-concurrent-large-blobs.json" ENCLAVE_PREFIX="eigenda": (devnet "eigenda.yaml" VALUES_FILE ENCLAVE_PREFIX)
+  just eigenda-devnet-add-tx-fuzzer {{ENCLAVE_PREFIX}}-devnet
 [group('eigenda')]
 eigenda-devnet-clean ENCLAVE_NAME="eigenda-devnet":
     kurtosis enclave rm {{ENCLAVE_NAME}} --force
+# These tests are hardcoded to assume the enclave-name to be eigenda-devnet!
+# Runs all tests in the eigenda package (not only those specific to memstore).
+[group('eigenda')]
+eigenda-devnet-test-memstore *ARGS="":
+    go test ./tests/eigenda/... {{ARGS}}
+# test-holesky skips the eigenda/memstore package which requires memstore functionality
+[group('eigenda')]
+eigenda-devnet-test-holesky *ARGS="":
+    go test ./tests/eigenda/. {{ARGS}}
+[group('eigenda')]
+eigenda-devnet-add-tx-fuzzer ENCLAVE_NAME="eigenda-devnet" *ARGS="":
+  kurtosis service add {{ENCLAVE_NAME}} tx-fuzz ethpandaops/tx-fuzz:master -- \
+    spam \
+    --sk "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" \
+    --rpc "http://op-el-1-op-geth-op-node-op-kurtosis:8545" \
+    --slot-time 2 \
+    --accounts 100 --txcount 1 \
+    {{ARGS}}
+
+##### EigenDA Commands below are for debugging and manual testing #####
 
 # Cause proxy to start returning 503 errors to batcher, as a signal
 # to failover to ethDA. Use `eigenda-devnet-failback` to revert.
@@ -152,15 +176,15 @@ eigenda-devnet-restart-batcher ENCLAVE_NAME="eigenda-devnet":
       --altda.enabled=True \
       --altda.da-server=http://da-server-op-kurtosis:3100 \
       --altda.da-service \
-      --altda.max-concurrent-da-requests=1 \
-      --max-channel-duration=2 \
-      --target-num-frames=1 \
+      --altda.max-concurrent-da-requests=100 \
+      --max-pending-tx=100 \
+      --max-channel-duration=10 \
+      --target-num-frames=10 \
       --max-l1-tx-size-bytes=1000 \
-      --batch-type=1
-# These tests are hardcoded to assume the enclave-name to be eigenda-devnet!
-[group('eigenda')]
-eigenda-devnet-test:
-    go test ./tests/eigenda/...
+      --batch-type=1 \
+      --throttle-threshold=500_000 \
+      --throttle-block-size=1000
+
 
 # Simple devnet
 simple-devnet: (devnet "simple.yaml")
