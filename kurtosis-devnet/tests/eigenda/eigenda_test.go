@@ -17,7 +17,7 @@ import (
 // Updating the batcher params is currently hard to do however; see comments above the eigenda-devnet-restart-batcher command in the justfile.
 func TestBatcherFromLogs(t *testing.T) {
 	// We stream logs for 5 minute, and run all the below tests in parallel (they read the same log outputs)
-	ctxWithTestTimeout, cancel := context.WithTimeout(context.Background(), 20 * time.Second)
+	ctxWithTestTimeout, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	t.Cleanup(cancel)
 
 	harness := NewHarness(t)
