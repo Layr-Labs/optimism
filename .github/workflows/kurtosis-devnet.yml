@@ -28,7 +28,7 @@ jobs:
           experimental: true
       - run: just eigenda-devnet-start eigenda-template-values/${{ matrix.valuesFile }}
         working-directory: kurtosis-devnet
-      - run: just eigenda-devnet-test-memstore
+      - run: just eigenda-devnet-test-memstore -v
         working-directory: kurtosis-devnet
 
   # This is an optimism devnet which talks to the eigenda holesky testnet via an eigenda-proxy.
@@ -62,5 +62,5 @@ jobs:
         working-directory: kurtosis-devnet
       - run: just eigenda-devnet-start holesky-config.json
         working-directory: kurtosis-devnet
-      - run: just eigenda-devnet-test-holesky
+      - run: just eigenda-devnet-test-holesky -v
         working-directory: kurtosis-devnet
