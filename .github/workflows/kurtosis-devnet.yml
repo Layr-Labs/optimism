@@ -18,7 +18,7 @@ jobs:
       fail-fast: false # run all matrix jobs even if one fails
       matrix:
         # This list should be kept up-to-date with the files in eigenda-template-values
-        valuesFile: ["memstore-sequential-small-blobs.json, memstore-concurrent-large-blobs.json"]
+        valuesFile: ["memstore-sequential-small-blobs.json", "memstore-concurrent-large-blobs.json"]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
       fail-fast: false # run all matrix jobs even if one fails
       matrix:
         # This list should be kept up-to-date with the files in eigenda-template-values
-        valuesFile: ["memstore-sequential-small-blobs.json, memstore-concurrent-large-blobs.json"]
+        valuesFile: ["memstore-sequential-small-blobs.json", "memstore-concurrent-large-blobs.json"]
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
