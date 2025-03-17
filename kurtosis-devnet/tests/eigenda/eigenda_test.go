@@ -16,18 +16,11 @@ import (
 // We could then increase traffic until the point where DA gets throttled, then change batcher parameters to increase blob size, etc.
 // Updating the batcher params is currently hard to do however; see comments above the eigenda-devnet-restart-batcher command in the justfile.
 func TestBatcherFromLogs(t *testing.T) {
-	deadline, ok := t.Deadline()
-	if !ok {
-		deadline = time.Now().Add(10 * time.Minute)
-	}
-	ctxWithDeadline, cancel := context.WithDeadline(context.Background(), deadline)
-	defer cancel()
+	// We stream logs for 5 minute, and run all the below tests in parallel (they read the same log outputs)
+	ctxWithTestTimeout, cancel := context.WithTimeout(context.Background(), 20 * time.Second)
+	t.Cleanup(cancel)
 
 	harness := NewHarness(t)
-
-	// We stream logs for 5 minute, and run all the below tests in parallel (they read the same log outputs)
-	testsTimer := time.NewTimer(5 * time.Minute)
-	defer testsTimer.Stop()
 
 	// Make sure that no channel is ever timing out (fails to be sent to L1 in timely manner).
 	// Make sure the testsTimer is longer than max-channel-duration in the batcher config (found in the eigenda-template-values/ files).
@@ -36,11 +29,11 @@ func TestBatcherFromLogs(t *testing.T) {
 		t.Parallel()
 		// Log output is from https://github.com/Layr-Labs/optimism/blob/a5709b435f39cab0d7f5dc879b65e07e2f90a548/op-batcher/batcher/channel.go#L102
 		filter := kurtosis_context.NewDoesContainMatchRegexLogLineFilter("channel timed out")
-		c := harness.QueryBatcherLogs(ctxWithDeadline, false, filter)
+		c := harness.QueryBatcherLogs(ctxWithTestTimeout, true, filter)
 
 		for {
 			select {
-			case <-testsTimer.C:
+			case <-ctxWithTestTimeout.Done():
 				return
 			case <-c:
 				t.Logf("channel timed out on batcher... something went wrong.")
@@ -53,11 +46,11 @@ func TestBatcherFromLogs(t *testing.T) {
 		t.Parallel()
 		// Log output is from https://github.com/Layr-Labs/optimism/blob/a5709b435f39cab0d7f5dc879b65e07e2f90a548/op-batcher/batcher/driver.go#L540
 		filter := kurtosis_context.NewDoesContainMatchRegexLogLineFilter("throttling DA")
-		c := harness.QueryBatcherLogs(ctxWithDeadline, false, filter)
+		c := harness.QueryBatcherLogs(ctxWithTestTimeout, true, filter)
 
 		for {
 			select {
-			case <-testsTimer.C:
+			case <-ctxWithTestTimeout.Done():
 				return
 			case <-c:
 				t.Logf("da got throttled... something went wrong.")
@@ -70,12 +63,12 @@ func TestBatcherFromLogs(t *testing.T) {
 		t.Parallel()
 		// Log line from https://github.com/Layr-Labs/optimism/blob/a5709b435f39cab0d7f5dc879b65e07e2f90a548/op-batcher/batcher/driver.go#L921
 		filter := kurtosis_context.NewDoesContainMatchRegexLogLineFilter("Transaction confirmed")
-		c := harness.QueryBatcherLogs(ctxWithDeadline, false, filter)
+		c := harness.QueryBatcherLogs(ctxWithTestTimeout, true, filter)
 
 		lastTxConfirmed := time.Now()
 		for {
 			select {
-			case <-testsTimer.C:
+			case <-ctxWithTestTimeout.Done():
 				return
 			case <-c:
 				now := time.Now()
