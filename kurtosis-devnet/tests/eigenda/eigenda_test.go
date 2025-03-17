@@ -42,7 +42,7 @@ func TestBatcherFromLogs(t *testing.T) {
 			select {
 			case <-testsTimer.C:
 				return
-			case _ = <-c:
+			case <-c:
 				t.Logf("channel timed out on batcher... something went wrong.")
 				t.Fail()
 			}
@@ -59,7 +59,7 @@ func TestBatcherFromLogs(t *testing.T) {
 			select {
 			case <-testsTimer.C:
 				return
-			case _ = <-c:
+			case <-c:
 				t.Logf("da got throttled... something went wrong.")
 				t.Fail()
 			}
@@ -77,7 +77,7 @@ func TestBatcherFromLogs(t *testing.T) {
 			select {
 			case <-testsTimer.C:
 				return
-			case _ = <-c:
+			case <-c:
 				now := time.Now()
 				// We expect a transaction to be confirmed in every L1 block.
 				if now.Sub(lastTxConfirmed) > L1BlockTime {
