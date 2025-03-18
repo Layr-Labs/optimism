@@ -60,7 +60,7 @@ When a Tx is confirmed, an asynchronous receipts handler is triggered. We only u
 
 #### AltDA Submission Fails
 
-When an AltDA submission fails, the frames that pushed back into their respective channel, and will be retried in the next tick. If the da-server returns a 503 HTTP error, then failover to ethDA-calldata is triggered for that specific channel. Each channel will independently always first try to submit to EigenDA.
+When an AltDA submission fails, the frames get pushed back into their respective channel, and will be retried in the next tick. If the da-server returns a 503 HTTP error, then failover to ethDA-calldata is triggered for that specific channel. Each channel will independently always first try to submit to EigenDA.
 
 ## Design Principles and Optimization Targets
 At the current time, the batcher should be optimized for correctness, simplicity and robustness. It is considered preferable to prioritize these properties, even at the expense of other potentially desirable properties such as frugality. For example, it is preferable to have the batcher resubmit some data from time to time ("wasting" money on data availability costs) instead of avoiding that by e.g. adding some persistent state to the batcher.
