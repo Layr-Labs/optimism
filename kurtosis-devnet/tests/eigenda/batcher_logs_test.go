@@ -14,8 +14,9 @@ func TestBatcherFromLogs_Holesky(t *testing.T) {
 }
 
 func TestBatcherFromLogs_Memstore(t *testing.T) {
-	// 5 minutes is arbitrary here but should be long enough to observe interesting behavior using memstore.
-	testBatcherFromLogs(t, 5*time.Minute)
+	// 2 minutes is arbitrary here but should be long enough to observe interesting behavior using memstore.
+	// Also need to run the failover test which takes quite a while and can't run in parallel with these tests (or can it..?)
+	testBatcherFromLogs(t, 2*time.Minute)
 }
 
 // These tests are log driven. The batcher doesn't expose an API to query its state outside of logs and metrics,
@@ -45,9 +46,9 @@ func testBatcherFromLogs(t *testing.T, testTimeout time.Duration) {
 			select {
 			case <-ctxWithTestTimeout.Done():
 				return
-			case <-c:
-				t.Logf("channel timed out on batcher... something went wrong.")
-				t.Fail()
+			case logLine := <-c:
+				t.Logf("channel timed out on batcher... something went wrong. Log line: %v", logLine)
+				t.FailNow()
 			}
 		}
 	})
@@ -62,9 +63,9 @@ func testBatcherFromLogs(t *testing.T, testTimeout time.Duration) {
 			select {
 			case <-ctxWithTestTimeout.Done():
 				return
-			case <-c:
-				t.Logf("da got throttled... something went wrong.")
-				t.Fail()
+			case logLine := <-c:
+				t.Logf("da got throttled... something went wrong. Log line: %v", logLine)
+				t.FailNow()
 			}
 		}
 	})
@@ -72,6 +73,8 @@ func testBatcherFromLogs(t *testing.T, testTimeout time.Duration) {
 	t.Run("Transactions are confirming", func(t *testing.T) {
 		t.Parallel()
 		// Log line from https://github.com/Layr-Labs/optimism/blob/a5709b435f39cab0d7f5dc879b65e07e2f90a548/op-batcher/batcher/driver.go#L921
+		// Actually there's a duplicate log line: https://github.com/Layr-Labs/optimism/blob/a5709b435f39cab0d7f5dc879b65e07e2f90a548/op-service/txmgr/txmgr.go#L780
+		// We should prob divide by 2 but leaving as is in case this duplicate gets removed in the future...
 		filter := kurtosis_context.NewDoesContainMatchRegexLogLineFilter("Transaction confirmed")
 		c := harness.QueryBatcherLogs(ctxWithTestTimeout, true, filter)
 
@@ -87,7 +90,6 @@ func testBatcherFromLogs(t *testing.T, testTimeout time.Duration) {
 				return
 			case <-c:
 				confirmedTxsCount++
-				t.Logf("transaction confirmed at %v", time.Now())
 			}
 		}
 	})
