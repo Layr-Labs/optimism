@@ -34,7 +34,6 @@ func NewMockDAClient(log log.Logger) *MockDAClient {
 	return &MockDAClient{
 		CommitmentType: Keccak256CommitmentType,
 		store:          memorydb.New(),
-		StoreCount:     0,
 		log:            log,
 	}
 }
@@ -45,9 +44,7 @@ func NewMockDAClient(log log.Logger) *MockDAClient {
 func NewCountingGenericCommitmentMockDAClient(log log.Logger) *MockDAClient {
 	return &MockDAClient{
 		CommitmentType:         GenericCommitmentType,
-		GenericCommitmentCount: 0,
 		store:                  memorydb.New(),
-		StoreCount:             0,
 		log:                    log,
 	}
 }
