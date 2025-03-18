@@ -1,6 +1,6 @@
 // This package consists of tests against a kurtosis enclave running the eigenda-devnet, with proxy in memstore.
 // All tests in this package should be tests that explicitly require memstore, such as failover test.
-package eigenda_memstore_test
+package eigenda
 
 import (
 	"context"
@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	eigenda "github.com/ethereum-optimism/optimism/kurtosis-devnet/tests/eigenda"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -30,7 +29,7 @@ import (
 //
 // Note: because this test relies on modifying the proxy's memstore config, it should be run in isolation.
 // That is, if we ever implement more kurtosis tests, they would currently need to be run sequentially.
-func TestFailoverToEthDACalldata(t *testing.T) {
+func TestFailoverToEthDACalldata_Memstore(t *testing.T) {
 	deadline, ok := t.Deadline()
 	if !ok {
 		deadline = time.Now().Add(10 * time.Minute)
@@ -38,7 +37,7 @@ func TestFailoverToEthDACalldata(t *testing.T) {
 	ctxWithDeadline, cancel := context.WithDeadline(context.Background(), deadline)
 	defer cancel()
 
-	harness := eigenda.NewHarness(t)
+	harness := NewHarness(t)
 	t.Cleanup(func() {
 		// switch proxy back to normal mode, in case test gets cancelled
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

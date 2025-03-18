@@ -8,6 +8,16 @@ import (
 	"github.com/kurtosis-tech/kurtosis/api/golang/engine/lib/kurtosis_context"
 )
 
+func TestBatcherFromLogs_Holesky(t *testing.T) {
+	// Batching time on Holesky can be up to 10 minutes, so we need long time to see a tx getting confirmed.
+	testBatcherFromLogs(t, 15*time.Minute)
+}
+
+func TestBatcherFromLogs_Memstore(t *testing.T) {
+	// 5 minutes is arbitrary here but should be long enough to observe interesting behavior using memstore.
+	testBatcherFromLogs(t, 5*time.Minute)
+}
+
 // These tests are log driven. The batcher doesn't expose an API to query its state outside of logs and metrics,
 // so hard to do much better. We rely on some info logs appearing and some warning/error logs not appearing.
 // These tests are not very sophisticated, but are at least a good sanity check...
@@ -15,9 +25,9 @@ import (
 // A better approach might be to generate txs from inside the golang test instead of relying on the external tx-fuzzer.
 // We could then increase traffic until the point where DA gets throttled, then change batcher parameters to increase blob size, etc.
 // Updating the batcher params is currently hard to do however; see comments above the eigenda-devnet-restart-batcher command in the justfile.
-func TestBatcherFromLogs(t *testing.T) {
-	// We stream logs for 2 minute, and run all the below tests in parallel (they read the same log outputs)
-	ctxWithTestTimeout, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+func testBatcherFromLogs(t *testing.T, testTimeout time.Duration) {
+	// We stream logs for testTimeout, and run all the below tests in parallel (they read the same log outputs)
+	ctxWithTestTimeout, cancel := context.WithTimeout(context.Background(), testTimeout)
 	t.Cleanup(cancel)
 
 	harness := NewHarness(t)
