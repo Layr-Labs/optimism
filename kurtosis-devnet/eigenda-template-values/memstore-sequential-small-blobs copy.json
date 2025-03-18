@@ -1,10 +1,6 @@
 {
   "eigenda-proxy": {
-    "useMemstore": true,
-    "secrets": {
-      "eigenda.signer-private-key-hex": "",
-      "eigenda.eth_rpc": ""
-    }
+    "useMemstore": true
   },
   "batcher": {
     "max-channel-duration": 10,

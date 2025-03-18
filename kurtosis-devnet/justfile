@@ -86,16 +86,17 @@ eigenda-devnet-start VALUES_FILE="eigenda-template-values/memstore-concurrent-la
 [group('eigenda')]
 eigenda-devnet-clean ENCLAVE_NAME="eigenda-devnet":
     kurtosis enclave rm {{ENCLAVE_NAME}} --force
-# Runs all tests that end with the `_Memstore` suffix, assuming the devnet was started with memstore proxy.
+# Runs all tests that end with the `_Memstore` suffix, assuming the devnet was started with memstore proxy,
+# meaning with a config file in eigenda-template-values/memstore-* .
 [group('eigenda')]
 eigenda-devnet-test-memstore *ARGS="":
-    go test ./tests/eigenda/... -run "_Memstore$" {{ARGS}}
+    go test ./tests/eigenda/... -run "_Memstore$" -timeout 20m {{ARGS}}
 # Runs all tests that end with the `_Holesky` suffix, assuming the devnet was started with proxy using holesky backend.
-# To start the devnet with holesky backend, the files in eigenda-template-values/ need to be modified.
+# To start the devnet with holesky backend, the files in eigenda-template-values/holesky-* need have secrets injected.
 # Take a look at how CI does it in .github/workflows/kurtosis-devnet.yml .
 [group('eigenda')]
 eigenda-devnet-test-holesky *ARGS="":
-    go test ./tests/eigenda/... -run "_Holesky$" {{ARGS}}
+    go test ./tests/eigenda/... -run "_Holesky$" -timeout 20m {{ARGS}}
 [group('eigenda')]
 eigenda-devnet-add-tx-fuzzer ENCLAVE_NAME="eigenda-devnet" *ARGS="":
   kurtosis service add {{ENCLAVE_NAME}} tx-fuzz ethpandaops/tx-fuzz:master -- \
