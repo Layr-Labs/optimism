@@ -50,19 +50,17 @@ In each channel, the `frameCursor` tracks the next unsent frame.
 #### Reorgs
 When an L2 reorg (safe or unsafe) is detected, the batch submitter will reset its state, and wait for any in flight transactions to be ingested by the verifier nodes before starting work again.
 
-> TODO: is this true?? `waitNodeSync()` seems to only wait for the node to sync to the L1 tip of the batcher's L1 node, or an older block where the last batcher tx was included, but not wait for inflight txs to be ingested.
-
 #### Tx Failed
 When a Tx fails, an asynchronous receipts handler is triggered. The channel from whence the Tx's frames came has its `frameCursor` rewound, so that all the frames can be resubmitted in order.
 
-> TODO: there might be an issue with this simple logic. See https://github.com/ethereum-optimism/optimism/issues/13283
+> Note: there is an issue with this simple logic. See https://github.com/ethereum-optimism/optimism/issues/13283
 
 #### Channel Times Out
 When a Tx is confirmed, an asynchronous receipts handler is triggered. We only update the batcher's state if the channel timed out on chain. In that case, the `blockCursor` is rewound to the first block added to that channel, and the channel queue is cleared out. This allows the batcher to start fresh building a new channel starting from the same block -- it does not need to refetch blocks from the sequencer.
 
 #### AltDA Submission Fails
 
-> TODO: describe how the batcher handles this.
+When an AltDA submission fails, the frames that pushed back into their respective channel, and will be retried in the next tick. If the da-server returns a 503 HTTP error, then failover to ethDA-calldata is triggered for that specific channel. Each channel will independently always first try to submit to EigenDA.
 
 ## Design Principles and Optimization Targets
 At the current time, the batcher should be optimized for correctness, simplicity and robustness. It is considered preferable to prioritize these properties, even at the expense of other potentially desirable properties such as frugality. For example, it is preferable to have the batcher resubmit some data from time to time ("wasting" money on data availability costs) instead of avoiding that by e.g. adding some persistent state to the batcher.
