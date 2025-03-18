@@ -9,6 +9,12 @@ import (
 )
 
 func TestBatcherFromLogs_Holesky(t *testing.T) {
+	deadline, ok := t.Deadline()
+	// !ok means no timeout was set, and hence uses golang's default 10min timeout.
+	if !ok  || time.Until(deadline) < 15*time.Minute {
+		t.Logf("TestBatcherFromLogs_Holesky needs a timeout of at least 15 minutes to run.")
+		t.FailNow()
+	}
 	// Batching time on Holesky can be up to 10 minutes, so we need long time to see a tx getting confirmed.
 	testBatcherFromLogs(t, 15*time.Minute)
 }
