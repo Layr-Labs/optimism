@@ -298,7 +298,11 @@ func TestBatchSubmitter_AltDA_FailureCase2_FailedL1Tx(t *testing.T) {
 }
 
 func TestBatchSubmitter_AltDA_FailureCase3_ChannelTimeout(t *testing.T) {
-	// TODO: implement this test
+	// This function is not implemented because the batcher channel logic makes it very difficult to inject faults.
+	// A version of this test was implemented here: https://github.com/Layr-Labs/optimism/blob/4b79c981a13bf096ae2984634d976956fbbfddff/op-batcher/batcher/driver_test.go#L300
+	// However we opted to not merge it into the main branch because it has an external dependency on the https://github.com/pingcap/failpoint package,
+	// and requires a lot of custom test setup and failpoint code injection into the batcher's codebase.
+	// See https://github.com/ethereum-optimism/optimism/commit/4b79c981a13bf096ae2984634d976956fbbfddff for the full implementation.
 }
 
 func TestBatchSubmitter_AltDA_FailureCase4_FailedBlobSubmission(t *testing.T) {
