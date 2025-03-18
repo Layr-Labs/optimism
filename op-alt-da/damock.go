@@ -43,9 +43,9 @@ func NewMockDAClient(log log.Logger) *MockDAClient {
 // Used for testing to make sure we receive commitments in order following Holocene strict ordering rules.
 func NewCountingGenericCommitmentMockDAClient(log log.Logger) *MockDAClient {
 	return &MockDAClient{
-		CommitmentType:         GenericCommitmentType,
-		store:                  memorydb.New(),
-		log:                    log,
+		CommitmentType: GenericCommitmentType,
+		store:          memorydb.New(),
+		log:            log,
 	}
 }
 
