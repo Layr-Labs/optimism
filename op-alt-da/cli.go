@@ -105,7 +105,7 @@ func (c CLIConfig) Check() error {
 func (c CLIConfig) NewDAClient() (*DAClient, error) {
 	err := c.Check()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("check daclient CLIConfig: %w", err)
 	}
 	return &DAClient{url: c.DAServerURL, verify: c.VerifyOnRead, precompute: !c.GenericDA, getTimeout: c.GetTimeout, putTimeout: c.PutTimeout}, nil
 }

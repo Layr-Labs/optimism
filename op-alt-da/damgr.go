@@ -81,7 +81,7 @@ type DA struct {
 func NewAltDA(log log.Logger, cli CLIConfig, cfg Config, metrics Metricer) (*DA, error) {
 	daClient, err := cli.NewDAClient()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new DAClient: %w", err)
 	}
 	return NewAltDAWithStorage(log, cfg, daClient, metrics), nil
 }
