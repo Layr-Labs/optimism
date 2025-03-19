@@ -2,6 +2,8 @@ name: Push Images to ghcr
 
 on:
   push:
+    branches:
+      - eigenda-develop
     tags:
       - "op-*/v*-eigenda.*" # Will match tags like op-node/v1.11.1-eigenda.1, op-batcher/v1.12.3-eigenda.2, etc.
 
@@ -23,5 +25,8 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup multi-arch docker builder
+        run: make docker-builder
 
       - run: make layr-labs-docker-push
