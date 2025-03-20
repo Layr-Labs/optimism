@@ -1,5 +1,3 @@
-// This package consists of tests against a kurtosis enclave running the eigenda-devnet, with proxy in memstore.
-// All tests in this package should be tests that explicitly require memstore, such as failover test.
 package eigenda
 
 import (
