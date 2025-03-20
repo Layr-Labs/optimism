@@ -23,7 +23,7 @@ import (
 )
 
 // The below are hardcoded constants that are specific to the eigenda-devnet enclave.
-// They could be fetched dynamically from the enclave if/when needed, but for now its easier to just hardcode them here,
+// They could be fetched dynamically from the enclave if/when needed, but for now it's easier to just hardcode them here,
 // since we don't plan on changing them anytime soon.
 
 // All tests are run in the context of the eigenda-devnet enclave.
