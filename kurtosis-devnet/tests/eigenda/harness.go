@@ -30,9 +30,6 @@ import (
 // We assume that this enclave is already running.
 const enclaveName = "eigenda-devnet"
 
-// Set as part of the ethereum-package kurtosis config
-const L1BlockTime = 6 * time.Second
-
 // Test Harness, which contains all the state needed to run the tests.
 // Harness also defines some higher-level "require" methods that are used in the tests.
 type Harness struct {
