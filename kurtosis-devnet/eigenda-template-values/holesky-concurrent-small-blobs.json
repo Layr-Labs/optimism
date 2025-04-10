@@ -1,8 +1,10 @@
 {
   "eigenda-proxy": {
     "useMemstore": false,
+    "dispersalBackend": "v1",
     "secrets": {
       "eigenda.signer-private-key-hex": "",
+      "eigenda.v2.signer-payment-key-hex": "",
       "eigenda.eth_rpc": ""
     }
   },
