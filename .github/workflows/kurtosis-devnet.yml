@@ -54,6 +54,8 @@ jobs:
           [
             "holesky-sequential-large-blobs.json",
             "holesky-concurrent-small-blobs.json",
+            "holesky-v2-sequential-large-blobs.json",
+            "holesky-v2-concurrent-small-blobs.json",
           ]
     steps:
       - uses: actions/checkout@v4
