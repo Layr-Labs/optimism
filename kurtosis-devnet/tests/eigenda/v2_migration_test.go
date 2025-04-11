@@ -18,7 +18,8 @@ import (
 //
 // Note: because this test modifies the proxy's state config, it should be run in isolation (sequentially).
 func TestEigenDAV2Migration_Memstore(t *testing.T) {
-	testTimeout := 4 * time.Minute // each stage is 20*6 seconds = 2 mins
+	// both stages are 20*6 seconds = 2 mins, and we leave 8 mins for op-node finalization
+	testTimeout := 2*2*time.Minute + 8*time.Minute
 	ctxWithTestTimeout, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
@@ -58,4 +59,14 @@ func TestEigenDAV2Migration_Memstore(t *testing.T) {
 	require.NoError(t, err)
 
 	requireBatcherTxsToBeFromLayer(t, stage2FromBlockNum, stage2ToBlockNum, DALayerEigenDAV2, harness.Endpoints.GethL1Endpoint, harness.BatchInboxAddr)
+
+	// We also check that the op-node is still finalizing blocks after the failover
+	syncStatus, err := harness.Clients.OpNodeClient.SyncStatus(ctxWithTimeout)
+	require.NoError(t, err)
+	afterFailoverFinalizedL2 := syncStatus.FinalizedL2
+	t.Logf("[Finalization] Current finalized L2 block: %d. Waiting for next block to finalize to make sure finalization is still happening.", afterFailoverFinalizedL2.Number)
+	// On average would expect this to take half an epoch, aka 16 L1 blocks, which at 6 sec/block means 1.5 minutes.
+	// This generally takes longer (3-6 minutes), but I'm not quite sure why.
+	_, err = geth.WaitForBlockToBeFinalized(new(big.Int).SetUint64(afterFailoverFinalizedL2.Number+1), harness.Clients.OpGethClient, 6*time.Minute)
+	require.NoError(t, err, "op-node should still be finalizing blocks after failover")
 }
