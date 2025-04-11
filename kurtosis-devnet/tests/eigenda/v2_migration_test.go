@@ -10,15 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFailover tests the failover behavior of the batcher, in response to the proxy returning 503 errors.
-// See https://github.com/Layr-Labs/eigenda-proxy?tab=readme-ov-file#failover-signals for proxy behavior.
-// The proxy's memstore's failover behavior is toggled on and off by this test via a REST api.
-// We then check that the batcher correctly interprets the 503 signals and starts submitting batches to EthDACalldata instead.
-// The test then toggles the failover back off and checks that the batcher starts submitting EigenDA batches again.
+// TestEigenDAV2Migration tests a rollup migration from eigenDA V1 to V2.
+// We use the proxy's admin REST API to change the dispersal backend.
+// See https://github.com/Layr-Labs/eigenda-proxy?tab=readme-ov-file#on-the-fly-migration for details.
+// This test simply checks that the batcher txs have the correct version byte.
 // The batches inbox transactions are queried via geth's GraphQL API.
 //
-// Note: because this test relies on modifying the proxy's memstore config, it should be run in isolation.
-// That is, if we ever implement more kurtosis tests, they would currently need to be run sequentially.
+// Note: because this test modifies the proxy's state config, it should be run in isolation (sequentially).
 func TestEigenDAV2Migration_Memstore(t *testing.T) {
 	testTimeout := 4 * time.Minute // each stage is 20*6 seconds = 2 mins
 	ctxWithTestTimeout, cancel := context.WithTimeout(context.Background(), testTimeout)
