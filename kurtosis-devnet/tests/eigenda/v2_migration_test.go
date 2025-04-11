@@ -60,6 +60,8 @@ func testEigenDAV2Migration(t *testing.T) {
 	err = harness.Clients.ProxyClients.SetDispersalBackend(ctxWithTimeout, EigenDACertVersionV2)
 	require.NoError(t, err)
 
+	ctxWithTimeout, cancel = context.WithTimeout(ctxWithTestTimeout, 5*time.Second)
+	defer cancel()
 	stage2FromBlockNum, err := harness.Clients.GethL1Client.BlockNumber(ctxWithTimeout)
 	require.NoError(t, err)
 	stage2ToBlockNum := stage2FromBlockNum + l1BlocksQueriedForBatcherTxs
@@ -68,7 +70,10 @@ func testEigenDAV2Migration(t *testing.T) {
 
 	requireBatcherTxsToBeFromLayer(t, stage2FromBlockNum, stage2ToBlockNum, DALayerEigenDAV2, harness.Endpoints.GethL1Endpoint, harness.BatchInboxAddr)
 
-	// We also check that the op-node is still finalizing blocks after the failover
+	// We also check that the op-node is still finalizing blocks after the migration to v2
+	t.Logf("[Stage3] Check that op-node is still finalizing blocks after v2 migration")
+	ctxWithTimeout, cancel = context.WithTimeout(ctxWithTestTimeout, 5*time.Second)
+	defer cancel()
 	syncStatus, err := harness.Clients.OpNodeClient.SyncStatus(ctxWithTimeout)
 	require.NoError(t, err)
 	afterFailoverFinalizedL2 := syncStatus.FinalizedL2
