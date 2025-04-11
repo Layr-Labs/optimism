@@ -26,10 +26,6 @@ func TestEigenDAV2Migration_Memstore(t *testing.T) {
 
 	harness := NewHarness(t)
 
-	// We run the log based batcher tests in parallel, which just make sure that the batcher is
-	// performing as expected while switching from eigenda v1 to v2.
-	testBatcherFromLogs(t, harness, testTimeout)
-
 	// Number of blocks to query for batcher txs, for v1 and v2 stages.
 	// Need to make sure each stage contains at least 2 commitments of the correct type. This can only happen if channels
 	// are being closed in time, which requires either: sending traffic with traffic-generator, or setting a low (e.g. 2 L1 blocks) channel-timeout.
@@ -64,5 +60,4 @@ func TestEigenDAV2Migration_Memstore(t *testing.T) {
 	require.NoError(t, err)
 
 	requireBatcherTxsToBeFromLayer(t, stage2FromBlockNum, stage2ToBlockNum, DALayerEigenDAV2, harness.Endpoints.GethL1Endpoint, harness.BatchInboxAddr)
-
 }

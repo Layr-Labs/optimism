@@ -208,9 +208,7 @@ func getClientsFromEndpoints(ctx context.Context, logger log.Logger, endpoints *
 		return nil, fmt.Errorf("ethclient.Dial: %w", err)
 	}
 
-	proxyClients := &ProxyClients{
-		Client: memconfig_client.New(&memconfig_client.Config{URL: endpoints.EigendaProxyEndpoint}),
-	}
+	proxyClients := NewProxyClients(endpoints.EigendaProxyEndpoint)
 
 	return &EnclaveServiceClients{
 		OpNodeClient: opNodeClient,
