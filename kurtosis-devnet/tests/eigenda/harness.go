@@ -281,7 +281,7 @@ func (c *ProxyAdminAPIClient) GetDispersalBackend(ctx context.Context) (EigenDAC
 	url := c.proxyEndpoint + "/admin/eigenda-dispersal-backend"
 
 	// Create a new request
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return "", fmt.Errorf("error creating request: %w", err)
 	}
