@@ -10,6 +10,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestEigenDAV2Migration_Memstore(t *testing.T) {
+	testEigenDAV2Migration(t)
+}
+
+func TestEigenDAV2Migration_Holesky(t *testing.T) {
+	testEigenDAV2Migration(t)
+}
+
 // TestEigenDAV2Migration tests a rollup migration from eigenDA V1 to V2.
 // We use the proxy's admin REST API to change the dispersal backend.
 // See https://github.com/Layr-Labs/eigenda-proxy?tab=readme-ov-file#on-the-fly-migration for details.
@@ -17,7 +25,7 @@ import (
 // The batches inbox transactions are queried via geth's GraphQL API.
 //
 // Note: because this test modifies the proxy's state config, it should be run in isolation (sequentially).
-func TestEigenDAV2Migration_Memstore(t *testing.T) {
+func testEigenDAV2Migration(t *testing.T) {
 	// both stages are 20*6 seconds = 2 mins, and we leave 8 mins for op-node finalization
 	testTimeout := 2*2*time.Minute + 8*time.Minute
 	ctxWithTestTimeout, cancel := context.WithTimeout(context.Background(), testTimeout)
