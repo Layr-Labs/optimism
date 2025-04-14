@@ -92,7 +92,7 @@ optimism_package:
         cannon_prestates_url: "http://fileserver/proofs/op-program/cannon"
         extra_params: []
       da_server_params:
-        image: ghcr.io/layr-labs/eigenda-proxy:v1.7.0-rc
+        image: ghcr.io/layr-labs/eigenda-proxy:v1.7.0
         cmd:
           - --addr=0.0.0.0
           - --port=3100
