@@ -120,6 +120,7 @@ func requireBatcherTxsToBeFromLayer(t *testing.T, fromBlockNum, toBlockNum uint6
 	wrongCommitmentsToDiscard := 0
 	for _, batcherTx := range batcherTxs {
 		if batcherTx.daLayer != expectedLayer {
+			t.Logf("Discarding batcher tx @ block %d with wrong commitment type %s (expected %s)", batcherTx.block, batcherTx.daLayer, expectedLayer)
 			wrongCommitmentsToDiscard++
 		}
 		// as soon as we see a commitment from expectedLayer, we stop discarding.
