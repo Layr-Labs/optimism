@@ -99,6 +99,7 @@ optimism_package:
           - --storage.backends-to-enable=V1,V2
           - --storage.dispersal-backend={{ $proxyDispersalBackend }} #v1 or v2
           - --api-enabled=admin # to enable changing dispersal-backend to v2 without restarting
+          - --eigenda.v2.max-blob-length=1MiB # makes startup faster by only loading 1MiB/2MiB of G1/G2 SRS points.
         {{- if $useProxyMemstore }}
           - --memstore.enabled
           - --memstore.expiration=30m
