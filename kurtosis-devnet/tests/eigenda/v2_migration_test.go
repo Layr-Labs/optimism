@@ -41,7 +41,7 @@ func TestEigenDAV2Migration_Holesky(t *testing.T) {
 func testEigenDAV2Migration(t *testing.T, v2StageL1BlocksQueriedForBatcherTxs uint64) {
 	// we assume that kurtosis devnet has already been running for a while,
 	// and check the 20 previous blocks to make sure that the batcher txs are from the correct layer.
-	v1StageL1BlocksQueriedForBatcherTxs := uint64(20)
+	v1StageL1BlocksQueriedForBatcherTxs := uint64(40)
 
 	l1BlockTime := 6 * time.Second
 	v1StageTimeRequired := time.Duration(v1StageL1BlocksQueriedForBatcherTxs) * l1BlockTime
