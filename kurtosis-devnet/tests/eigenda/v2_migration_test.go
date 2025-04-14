@@ -17,17 +17,14 @@ func TestEigenDAV2Migration_Memstore(t *testing.T) {
 }
 
 func TestEigenDAV2Migration_Holesky(t *testing.T) {
-	// The issue is that because of the holocene strict ordering rules,
-	// after migrating from v1 to v2, the v2 certs, even though they finalize very quickly
+	// We set to 160 = 16 mins (160 L1Blocks * 6sec/L1Block).
+	// This is unfortunately required because of the holocene strict ordering rules.
+	// After switching proxy from v1 to v2, the v2 certs, even though they finalize very quickly
 	// and are returned to op-batcher, op-batcher cannot send them to the batch-inbox until
-	// the v1 certs have been sent. So we need to wait at least 10-15 mins for the v1 certs to be returned
-	// from proxy to op-batcher and submitted to batch-inbox.
-	// starting kurtosis devnet takes ~10 mins and batcher logs tests take 15 mins,
-	// so we are already at 25 mins. Trying to keep CI time under 30 mins,
-	// so we skip this test for now. We could turn on if we had a nice inabox eigenda that would allow
-	// for much faster v1 finalization.
-	t.Skip("skipping test because would make ci take too long. We only run the memstore version in CI.")
-	// testEigenDAV2Migration(t, 200)
+	// the v1 certs have been sent. But v1 certs are still waiting to be bridged onchain.
+	// So we need to wait at least 10-15 mins for the v1 certs to be returned
+	// from proxy to op-batcher and submitted to batch-inbox before any v2 cert lands onchain.
+	testEigenDAV2Migration(t, 160)
 }
 
 // TestEigenDAV2Migration tests a rollup migration from eigenDA V1 to V2.
@@ -41,12 +38,16 @@ func TestEigenDAV2Migration_Holesky(t *testing.T) {
 // are being closed in time, which requires either: sending traffic with traffic-generator, or setting a low (e.g. 2 L1 blocks) channel-timeout.
 //
 // Note: because this test modifies the proxy's state config, it should be run in isolation (sequentially).
-func testEigenDAV2Migration(t *testing.T, l1BlocksQueriedForBatcherTxs uint64) {
+func testEigenDAV2Migration(t *testing.T, v2StageL1BlocksQueriedForBatcherTxs uint64) {
+	// we assume that kurtosis devnet has already been running for a while,
+	// and check the 20 previous blocks to make sure that the batcher txs are from the correct layer.
+	v1StageL1BlocksQueriedForBatcherTxs := uint64(20)
+
 	l1BlockTime := 6 * time.Second
-	eachStageTimeRequired := time.Duration(l1BlocksQueriedForBatcherTxs) * l1BlockTime
-	numBatcherStages := 2                          // v1 and v2 stages
+	v1StageTimeRequired := time.Duration(v1StageL1BlocksQueriedForBatcherTxs) * l1BlockTime
+	v2StageTimeRequired := time.Duration(v2StageL1BlocksQueriedForBatcherTxs) * l1BlockTime
 	opNodeFinalizationStageTime := 8 * time.Minute // we leave 8 mins for op-node finalization
-	testTimeout := time.Duration(numBatcherStages)*eachStageTimeRequired + opNodeFinalizationStageTime
+	testTimeout := v1StageTimeRequired + v2StageTimeRequired + opNodeFinalizationStageTime
 	ctxWithTestTimeout, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
@@ -68,7 +69,7 @@ func testEigenDAV2Migration(t *testing.T, l1BlocksQueriedForBatcherTxs uint64) {
 	t.Logf("[Stage1: EigenDA V1] Checking that the initial commitments are EigenDA V1")
 
 	stage1FromBlockNum := harness.TestStartL1BlockNum
-	stage1ToBlockNum := stage1FromBlockNum + l1BlocksQueriedForBatcherTxs
+	stage1ToBlockNum := stage1FromBlockNum + v1StageL1BlocksQueriedForBatcherTxs
 	_, err = geth.WaitForBlock(big.NewInt(int64(stage1ToBlockNum)), harness.Clients.GethL1Client)
 	require.NoError(t, err)
 
@@ -85,7 +86,7 @@ func testEigenDAV2Migration(t *testing.T, l1BlocksQueriedForBatcherTxs uint64) {
 	defer cancel()
 	stage2FromBlockNum, err := harness.Clients.GethL1Client.BlockNumber(ctxWithTimeout)
 	require.NoError(t, err)
-	stage2ToBlockNum := stage2FromBlockNum + l1BlocksQueriedForBatcherTxs
+	stage2ToBlockNum := stage2FromBlockNum + v2StageL1BlocksQueriedForBatcherTxs
 	_, err = geth.WaitForBlock(big.NewInt(int64(stage2ToBlockNum)), harness.Clients.GethL1Client)
 	require.NoError(t, err)
 
