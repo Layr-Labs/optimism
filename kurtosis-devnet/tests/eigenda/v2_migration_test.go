@@ -87,7 +87,7 @@ func testEigenDAV2Migration(t *testing.T, v2StageL1BlocksQueriedForBatcherTxs ui
 	stage2FromBlockNum, err := harness.Clients.GethL1Client.BlockNumber(ctxWithTimeout)
 	require.NoError(t, err)
 	stage2ToBlockNum := stage2FromBlockNum + v2StageL1BlocksQueriedForBatcherTxs
-	_, err = geth.WaitForBlock(big.NewInt(int64(stage2ToBlockNum)), harness.Clients.GethL1Client)
+	_, err = geth.WaitForBlock(big.NewInt(int64(stage2ToBlockNum)), harness.Clients.GethL1Client, geth.WithAbsoluteTimeout(v2StageTimeRequired))
 	require.NoError(t, err)
 
 	requireBatcherTxsToBeFromLayer(t, stage2FromBlockNum, stage2ToBlockNum, DALayerEigenDAV2, harness.Endpoints.GethL1Endpoint, harness.BatchInboxAddr)
