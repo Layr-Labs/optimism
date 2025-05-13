@@ -231,7 +231,6 @@ func (d *DA) GetInput(ctx context.Context, l1 L1Fetcher, comm CommitmentData, bl
 	if err != nil && !notFound {
 		d.log.Error("failed to get preimage", "err", err)
 		// the storage client request failed for some other reason
-		// in which case derivation pipeline should be retried
 		return nil, err
 	}
 

@@ -23,6 +23,18 @@ var ErrInvalidInput = errors.New("invalid input")
 // See https://github.com/ethereum-optimism/specs/issues/434
 var ErrAltDADown = errors.New("alt DA is down: failover to eth DA")
 
+// InvalidCommitmentError is returned when the altda commitment is invalid
+// and should be dropped from the derivation pipeline.
+// Validity conditions for altda commitments are altda-layer-specific, so are done in da-servers.
+// They should be returned as 418 (I'M A TEAPOT) errors, with a body containing the reason.
+type InvalidCommitmentError struct {
+	Reason string
+}
+
+func (e InvalidCommitmentError) Error() string {
+	return fmt.Sprintf("Invalid AltDA Commitment: %v", e.Reason)
+}
+
 // DAClient is an HTTP client to communicate with a DA storage service.
 // It creates commitments and retrieves input data + verifies if needed.
 type DAClient struct {
@@ -60,6 +72,14 @@ func (c *DAClient) GetInput(ctx context.Context, comm CommitmentData, l1Inclusio
 	}
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, ErrNotFound
+	}
+	if resp.StatusCode == http.StatusTeapot {
+		defer resp.Body.Close()
+		var invalidCommitmentReason [250]byte
+		// We discard the error as it only contains the reason for invalidity.
+		// We might end up with a partial reason, but the commitment should still be skipped.
+		_, _ = io.ReadFull(resp.Body, invalidCommitmentReason[:])
+		return nil, InvalidCommitmentError{Reason: string(invalidCommitmentReason[:])}
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get preimage: %v", resp.StatusCode)
