@@ -60,7 +60,7 @@ func (c *MockDAClient) DropEveryNthPut(n uint) {
 	c.dropEveryNthPut = n
 }
 
-func (c *MockDAClient) GetInput(ctx context.Context, key CommitmentData, _ eth.L1BlockRef) ([]byte, error) {
+func (c *MockDAClient) GetInput(ctx context.Context, key CommitmentData, _ uint64) ([]byte, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.log.Debug("Getting input", "key", key)
@@ -125,12 +125,12 @@ type DAErrFaker struct {
 
 var _ DAStorage = (*DAErrFaker)(nil)
 
-func (f *DAErrFaker) GetInput(ctx context.Context, key CommitmentData, blockId eth.L1BlockRef) ([]byte, error) {
+func (f *DAErrFaker) GetInput(ctx context.Context, key CommitmentData, l1InclusionBlockNumber uint64) ([]byte, error) {
 	if err := f.getInputErr; err != nil {
 		f.getInputErr = nil
 		return nil, err
 	}
-	return f.Client.GetInput(ctx, key, eth.L1BlockRef{})
+	return f.Client.GetInput(ctx, key, l1InclusionBlockNumber)
 }
 
 func (f *DAErrFaker) SetInput(ctx context.Context, data []byte) (CommitmentData, error) {

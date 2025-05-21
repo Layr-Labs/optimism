@@ -8,8 +8,6 @@ import (
 	"io"
 	"net/http"
 	"time"
-
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
 // ErrNotFound is returned when the server could not find the input.
@@ -58,10 +56,12 @@ func NewDAClient(url string, verify bool, pc bool) *DAClient {
 }
 
 // GetInput returns the input data for the given encoded commitment bytes.
-// The l1InclusionBlock at which the commitment was included in the batcher-inbox is submitted to the DA server.
+// The l1InclusionBlock at which the commitment was included in the batcher-inbox is submitted
+// to the DA server as a query parameter.
 // It is used to discard old commitments whose blobs have a risk of not being available anymore.
-func (c *DAClient) GetInput(ctx context.Context, comm CommitmentData, l1InclusionBlock eth.L1BlockRef) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/get/0x%x?l1_inclusion_block_number=%d", c.url, comm.Encode(), l1InclusionBlock.Number), nil)
+// It is optional, and passing a 0 value will tell the DA server to skip the check.
+func (c *DAClient) GetInput(ctx context.Context, comm CommitmentData, l1InclusionBlockNumber uint64) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/get/0x%x?l1_inclusion_block_number=%d", c.url, comm.Encode(), l1InclusionBlockNumber), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
