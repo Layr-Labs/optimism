@@ -75,11 +75,12 @@ func (c *DAClient) GetInput(ctx context.Context, comm CommitmentData, l1Inclusio
 	}
 	if resp.StatusCode == http.StatusTeapot {
 		defer resp.Body.Close()
-		var invalidCommitmentReason [250]byte
+		// Limit the body to 1000 bytes to prevent being DDoSed with a large error message.
+		bytesLimitedBody := http.MaxBytesReader(nil, resp.Body, 1000)
 		// We discard the error as it only contains the reason for invalidity.
-		// We might end up with a partial reason, but the commitment should still be skipped.
-		_, _ = io.ReadFull(resp.Body, invalidCommitmentReason[:])
-		return nil, InvalidCommitmentError{Reason: string(invalidCommitmentReason[:])}
+		// We might read a partial or missing reason, but the commitment should still be skipped.
+		invalidCommitmentReason, _ := io.ReadAll(bytesLimitedBody)
+		return nil, InvalidCommitmentError{Reason: string(invalidCommitmentReason)}
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get preimage: %v", resp.StatusCode)
