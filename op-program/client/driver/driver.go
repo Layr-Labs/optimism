@@ -42,7 +42,7 @@ func NewDriver(logger log.Logger, cfg *rollup.Config, l1Source derive.L1Fetcher,
 
 	altdaConfig, err := cfg.GetOPAltDAConfig()
 	// using using altda then always try to proxy
-	if err != nil && altdaConfig.CommitmentType == altda.GenericCommitmentType {
+	if err == nil && altdaConfig.CommitmentType == altda.GenericCommitmentType {
 		// default proxy address running at 3100
 		addr := "http://127.0.0.1:3100"
 
