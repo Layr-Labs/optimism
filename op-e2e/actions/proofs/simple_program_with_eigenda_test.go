@@ -16,6 +16,7 @@ import (
 
 func runSimpleProgramWithEigenDATest(gt *testing.T, testCfg *helpers.TestCfg[any]) {
 	t := actionsHelpers.NewDefaultTesting(gt)
+
 	testSetup := func(dc *genesis.DeployConfig) {
 		dc.L1PragueTimeOffset = ptr(hexutil.Uint64(0))
 		// Set non-trivial excess blob gas so that the L1 miner's blob logic is
