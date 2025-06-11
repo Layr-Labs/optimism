@@ -85,14 +85,17 @@ func NewL2FaultProofEnv[c any](t helpers.Testing, testCfg *TestCfg[c], tp *e2eut
 
 	var altdaImpl driver.AltDAIface
 	if dp.AllocType == e2ecfg.AllocTypeAltDAGeneric {
+		// default proxy address running at 3100
 		addr := "http://127.0.0.1:3100"
 
 		daClient := altda.NewDAClient(addr, false, false)
 		altDACfg, err := sd.RollupCfg.GetOPAltDAConfig()
 		require.NoError(t, err)
+		// allowing op-node from the sequencer to get
 		daMgr := altda.NewAltDAWithStorage(log, altDACfg, daClient, &altda.NoopMetrics{})
 
 		altdaImpl = daMgr
+		// allowing op-batcher to send
 		batcherCfg.AltDA = daClient
 	} else {
 		altdaImpl = &altda.AltDADisabled{}

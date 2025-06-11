@@ -192,7 +192,7 @@ func Setup(t require.TestingT, deployParams *DeployParams, alloc *AllocParams) *
 				DAResolveWindow:   deployConf.AltDADeployConfig.DAResolveWindow,
 			}
 		} else {
-			panic("cannot find a match toAltDADeployConfig.DACommitmentType")
+			panic("cannot find a match for DACommitmentType")
 		}
 	}
 

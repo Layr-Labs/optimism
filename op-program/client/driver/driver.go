@@ -41,21 +41,16 @@ func NewDriver(logger log.Logger, cfg *rollup.Config, l1Source derive.L1Fetcher,
 	var altdaImpl driver.AltDAIface
 
 	altdaConfig, err := cfg.GetOPAltDAConfig()
-	if err != nil {
-		panic("cfg.GetOPAltDAConfig() ")
-	}
-
 	// using using altda then always try to proxy
-	if altdaConfig.CommitmentType == altda.GenericCommitmentType {
-		// using eigenda proxy, this is a hack, clearly it cannot compile given it requires rpc access
+	if err != nil && altdaConfig.CommitmentType == altda.GenericCommitmentType {
+		// default proxy address running at 3100
 		addr := "http://127.0.0.1:3100"
 
+		// allowing op-program to get
 		daClient := altda.NewDAClient(addr, false, false)
 		daMgr := altda.NewAltDAWithStorage(logger, altdaConfig, daClient, &altda.NoopMetrics{})
 
 		altdaImpl = daMgr
-
-		log.Info("NewL2FaultProofEnv", "dp.AllocType", "EigenDAFaker")
 	} else {
 		altdaImpl = &altda.AltDADisabled{}
 	}
