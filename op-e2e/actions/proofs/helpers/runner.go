@@ -90,6 +90,25 @@ func RunFaultProofProgram(t helpers.Testing, logger log.Logger, l1 *helpers.L1Mi
 
 		err = RunKonaNative(t, workDir, rollupCfgs, l1.HTTPEndpoint(), fakeBeacon.BeaconAddr(), l2Endpoints, *fixtureInputs)
 		checkResult(t, err)
+	} else if IsEigenDAConfigured() {
+		fakeBeacon := fakebeacon.NewBeacon(
+			logger,
+			l1.BlobStore(),
+			l1.L1Chain().Genesis().Time(),
+			12,
+		)
+		require.NoError(t, fakeBeacon.Start("127.0.0.1:0"))
+		defer fakeBeacon.Close()
+
+		rollupCfgs := make([]*rollup.Config, 0, len(fixtureInputs.L2Sources))
+		l2Endpoints := make([]string, 0, len(fixtureInputs.L2Sources))
+		for _, source := range fixtureInputs.L2Sources {
+			rollupCfgs = append(rollupCfgs, source.Node.RollupCfg)
+			l2Endpoints = append(l2Endpoints, source.Engine.HTTPEndpoint())
+		}
+
+		err = RunHokuleaNative(t, workDir, rollupCfgs, l1.HTTPEndpoint(), fakeBeacon.BeaconAddr(), l2Endpoints, *fixtureInputs)
+		checkResult(t, err)
 	} else {
 		programCfg := NewOpProgramCfg(fixtureInputs)
 		withInProcessPrefetcher := hostcommon.WithPrefetcher(func(ctx context.Context, logger log.Logger, kv kvstore.KV, cfg *config.Config) (hostcommon.Prefetcher, error) {
