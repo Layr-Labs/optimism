@@ -66,7 +66,8 @@ func MakeDeployParams(t require.TestingT, tp *TestParams) *DeployParams {
 	deployConfig.ChannelTimeoutBedrock = tp.ChannelTimeout
 	deployConfig.L1BlockTime = tp.L1BlockTime
 	deployConfig.UseAltDA = tp.UseAltDA
-	if deployConfig.UseAltDA {
+
+	if tp.AllocType == config.AllocTypeAltDAGeneric {
 		deployConfig.AltDADeployConfig.DACommitmentType = altda.GenericCommitmentString
 	}
 	ApplyDeployConfigForks(deployConfig)
