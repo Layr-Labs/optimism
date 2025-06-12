@@ -59,12 +59,12 @@ jobs:
         # publish port so the Go tests can reach it via localhost:3100
         ports:
           - 3100:3100
-        options: >-
-          --memstore.enabled=true
-          --storage.dispersal-backend=V2
-          --storage.backends-to-enable=V2
-          --eigenda.v2.network=holesky_testnet
-          --eigenda.v2.max-blob-length=16kiB
+        env:
+          EIGENDA_PROXY_EIGENDA_V2_MAX_BLOB_LENGTH: 16kiB
+          EIGENDA_PROXY_MEMSTORE_ENABLED: true
+          EIGENDA_PROXY_EIGENDA_V2_NETWORK: holesky_testnet
+          EIGENDA_PROXY_STORAGE_BACKENDS_TO_ENABLE: V2
+          EIGENDA_PROXY_STORAGE_DISPERSAL_BACKEND: V2
     steps:
       - uses: actions/checkout@v4
 
