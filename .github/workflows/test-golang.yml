@@ -48,10 +48,6 @@ jobs:
       ports:
         - 3100:3100
       options: >-
-        --health-cmd "curl --fail http://localhost:3100/healthz || exit 1"
-        --health-interval 10s
-        --health-timeout 3s
-        --health-retries 10
         --memstore.enabled=true
         --storage.dispersal-backend=V2
         --storage.backends-to-enable=V2
