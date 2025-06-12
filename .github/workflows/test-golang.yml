@@ -41,19 +41,6 @@ jobs:
         if: steps.cache-artifacts.outputs.cache-hit != 'true'
         run: make build-contracts
 
-  service:
-    eigenda-proxy:
-      image: ghcr.io/layr-labs/eigenda-proxy:v1.8.1
-      # publish port so the Go tests can reach it via localhost:3100
-      ports:
-        - 3100:3100
-      options: >-
-        --memstore.enabled=true
-        --storage.dispersal-backend=V2
-        --storage.backends-to-enable=V2
-        --eigenda.v2.network=holesky_testnet
-        --eigenda.v2.max-blob-length=16kiB
-
   go-tests:
     needs: [build-and-cache-contracts]
     runs-on: ubuntu-latest
@@ -66,6 +53,18 @@ jobs:
           - op-alt-da
           - op-e2e/system/altda
           - op-e2e/actions/altda
+      service:
+    eigenda-proxy:
+      image: ghcr.io/layr-labs/eigenda-proxy:v1.8.1
+      # publish port so the Go tests can reach it via localhost:3100
+      ports:
+        - 3100:3100
+      options: >-
+        --memstore.enabled=true
+        --storage.dispersal-backend=V2
+        --storage.backends-to-enable=V2
+        --eigenda.v2.network=holesky_testnet
+        --eigenda.v2.max-blob-length=16kiB
     steps:
       - uses: actions/checkout@v4
 
