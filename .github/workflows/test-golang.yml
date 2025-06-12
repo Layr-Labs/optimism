@@ -41,6 +41,23 @@ jobs:
         if: steps.cache-artifacts.outputs.cache-hit != 'true'
         run: make build-contracts
 
+  service:
+    eigenda-proxy:
+      image: ghcr.io/layr-labs/eigenda-proxy:v1.8.1
+      # publish port so the Go tests can reach it via localhost:3100
+      ports:
+        - 3100:3100
+      options: >-
+        --health-cmd "curl --fail http://localhost:3100/healthz || exit 1"
+        --health-interval 10s
+        --health-timeout 3s
+        --health-retries 10
+        --memstore.enabled=true
+        --storage.dispersal-backend=V2
+        --storage.backends-to-enable=V2
+        --eigenda.v2.network=holesky_testnet
+        --eigenda.v2.max-blob-length=16kiB
+
   go-tests:
     needs: [build-and-cache-contracts]
     runs-on: ubuntu-latest
@@ -97,3 +114,7 @@ jobs:
       - name: Run tests
         run: |
           go test -timeout=10m ./${{ matrix.packages }}/...
+
+      - name: Run Op program with eigenda proxy test
+        run: |
+          go test -run Test_ProgramAction_SimpleEmptyChainWithEigenDA ./op-e2e/actions/proofs/...
