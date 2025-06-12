@@ -98,8 +98,8 @@ jobs:
         run: |
           go test -timeout=10m ./${{ matrix.packages }}/...
 
-  op-eigenda-e2e-tests:
-    needs: [go-tests]
+  op-program-eigenda-proxy-e2e-tests:
+    needs: [build-and-cache-contracts]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -112,8 +112,8 @@ jobs:
         env:
           EIGENDA_PROXY_EIGENDA_V2_MAX_BLOB_LENGTH: 16kiB
           EIGENDA_PROXY_MEMSTORE_ENABLED: true
-          EIGENDA_PROXY_EIGENDA_V2_NETWORK: holesky_testnet
-          EIGENDA_PROXY_STORAGE_BACKENDS_TO_ENABLE: V2
+          EIGENDA_PROXY_EIGENDA_V2_NETWORK: holesky_testnet # currently in memstore mode, proxy still have to specify network but it is ignored
+          EIGENDA_PROXY_STORAGE_BACKENDS_TO_ENABLE: V2 # 1.8.1 supports only V2 cert
           EIGENDA_PROXY_STORAGE_DISPERSAL_BACKEND: V2
     steps:
       - uses: actions/checkout@v4
