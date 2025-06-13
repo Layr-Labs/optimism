@@ -28,6 +28,7 @@ func (s *HokuleaExecutor) OracleCommand(cfg Config, dataDir string, inputs utils
 		return nil, errors.New("multiple L2s specified but only one supported")
 	}
 
+	// default proxy address running at 3100
 	addr := "http://127.0.0.1:3100"
 
 	args := []string{
@@ -42,6 +43,7 @@ func (s *HokuleaExecutor) OracleCommand(cfg Config, dataDir string, inputs utils
 		"--l2-claim", inputs.L2Claim.Hex(),
 		"--l2-block-number", inputs.L2SequenceNumber.Text(10),
 		"--eigenda-proxy-address", addr,
+		"-v",
 	}
 
 	if s.nativeMode {

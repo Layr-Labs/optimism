@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/actions/helpers"
@@ -35,6 +36,9 @@ func WithPreInteropDefaults(t helpers.Testing, l2ClaimBlockNum uint64, l2 *helpe
 			// If we are at genesis, we assert that we don't move the chain at all.
 			l2PreBlockNum = 0
 		}
+
+		fmt.Println("l2PreBlockNum", l2PreBlockNum)
+		fmt.Println("l2ClaimBlockNum", l2ClaimBlockNum)
 		rollupClient := l2.RollupClient()
 		preRoot, err := rollupClient.OutputAtBlock(t.Ctx(), l2PreBlockNum)
 		require.NoError(t, err)
