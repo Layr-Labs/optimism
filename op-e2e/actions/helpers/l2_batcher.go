@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"fmt"
 	"io"
 	"math/big"
 
@@ -171,9 +172,11 @@ func (s *L2Batcher) ActCreateChannel(t Testing, useSpanChannelOut bool) {
 				chainSpec := rollup.NewChainSpec(s.rollupCfg)
 				// use span batch if we're forcing it or if we're at/beyond delta
 				if s.l2BatcherCfg.ForceSubmitSpanBatch || useSpanChannelOut {
+					fmt.Println("create NewSpanChannelOut")
 					ch, err = derive.NewSpanChannelOut(target, derive.Zlib, chainSpec)
 					// use singular batches in all other cases
 				} else {
+					fmt.Println("create NewSingularChannelOut")
 					ch, err = derive.NewSingularChannelOut(c, chainSpec)
 				}
 			}

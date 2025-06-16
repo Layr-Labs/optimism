@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/engine"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/event"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
@@ -37,7 +38,24 @@ func NewDriver(logger log.Logger, cfg *rollup.Config, l1Source derive.L1Fetcher,
 		logger: logger,
 	}
 
-	pipeline := derive.NewDerivationPipeline(logger, cfg, l1Source, l1BlobsSource, altda.Disabled, l2Source, metrics.NoopMetrics, false)
+	var altdaImpl driver.AltDAIface
+
+	altdaConfig, err := cfg.GetOPAltDAConfig()
+	// using using altda then always try to proxy
+	if err == nil && altdaConfig.CommitmentType == altda.GenericCommitmentType {
+		// default proxy address running at 3100
+		addr := "http://127.0.0.1:3100"
+
+		// allowing op-program to get
+		daClient := altda.NewDAClient(addr, false, false)
+		daMgr := altda.NewAltDAWithStorage(logger, altdaConfig, daClient, &altda.NoopMetrics{})
+
+		altdaImpl = daMgr
+	} else {
+		altdaImpl = &altda.AltDADisabled{}
+	}
+
+	pipeline := derive.NewDerivationPipeline(logger, cfg, l1Source, l1BlobsSource, altdaImpl, l2Source, metrics.NoopMetrics, false)
 	pipelineDeriver := derive.NewPipelineDeriver(context.Background(), pipeline)
 	pipelineDeriver.AttachEmitter(d)
 

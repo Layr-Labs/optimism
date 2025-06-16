@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	e2ecfg "github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-program/client/boot"
 	"github.com/ethereum/go-ethereum/params"
 
@@ -82,6 +83,24 @@ func NewL2FaultProofEnv[c any](t helpers.Testing, testCfg *TestCfg[c], tp *e2eut
 
 	sd := e2eutils.Setup(t, dp, genesisAlloc)
 
+	var altdaImpl driver.AltDAIface
+	if dp.AllocType == e2ecfg.AllocTypeAltDAGeneric {
+		// default proxy address running at 3100
+		addr := "http://127.0.0.1:3100"
+
+		daClient := altda.NewDAClient(addr, false, false)
+		altDACfg, err := sd.RollupCfg.GetOPAltDAConfig()
+		require.NoError(t, err)
+		// allowing op-node from the sequencer to get
+		daMgr := altda.NewAltDAWithStorage(log, altDACfg, daClient, &altda.NoopMetrics{})
+
+		altdaImpl = daMgr
+		// allowing op-batcher to send
+		batcherCfg.AltDA = daClient
+	} else {
+		altdaImpl = &altda.AltDADisabled{}
+	}
+
 	jwtPath := e2eutils.WriteDefaultJWT(t)
 
 	miner := helpers.NewL1Miner(t, log.New("role", "l1-miner"), sd.L1Cfg)
@@ -92,7 +111,7 @@ func NewL2FaultProofEnv[c any](t helpers.Testing, testCfg *TestCfg[c], tp *e2eut
 	l2EngineCl, err := sources.NewEngineClient(engine.RPCClient(), log, nil, sources.EngineClientDefaultConfig(sd.RollupCfg))
 	require.NoError(t, err)
 
-	sequencer := helpers.NewL2Sequencer(t, log.New("role", "sequencer"), l1Cl, miner.BlobStore(), altda.Disabled, l2EngineCl, sd.RollupCfg, 0)
+	sequencer := helpers.NewL2Sequencer(t, log.New("role", "sequencer"), l1Cl, miner.BlobStore(), altdaImpl, l2EngineCl, sd.RollupCfg, 0)
 	miner.ActL1SetFeeRecipient(common.Address{0xCA, 0xFE, 0xBA, 0xBE})
 	sequencer.ActL2PipelineFull(t)
 	engCl := engine.EngineClient(t, sd.RollupCfg)

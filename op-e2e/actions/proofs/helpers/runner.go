@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/actions/helpers"
@@ -35,6 +36,9 @@ func WithPreInteropDefaults(t helpers.Testing, l2ClaimBlockNum uint64, l2 *helpe
 			// If we are at genesis, we assert that we don't move the chain at all.
 			l2PreBlockNum = 0
 		}
+
+		fmt.Println("l2PreBlockNum", l2PreBlockNum)
+		fmt.Println("l2ClaimBlockNum", l2ClaimBlockNum)
 		rollupClient := l2.RollupClient()
 		preRoot, err := rollupClient.OutputAtBlock(t.Ctx(), l2PreBlockNum)
 		require.NoError(t, err)
@@ -89,6 +93,25 @@ func RunFaultProofProgram(t helpers.Testing, logger log.Logger, l1 *helpers.L1Mi
 		}
 
 		err = RunKonaNative(t, workDir, rollupCfgs, l1.HTTPEndpoint(), fakeBeacon.BeaconAddr(), l2Endpoints, *fixtureInputs)
+		checkResult(t, err)
+	} else if IsEigenDAConfigured() {
+		fakeBeacon := fakebeacon.NewBeacon(
+			logger,
+			l1.BlobStore(),
+			l1.L1Chain().Genesis().Time(),
+			12,
+		)
+		require.NoError(t, fakeBeacon.Start("127.0.0.1:0"))
+		defer fakeBeacon.Close()
+
+		rollupCfgs := make([]*rollup.Config, 0, len(fixtureInputs.L2Sources))
+		l2Endpoints := make([]string, 0, len(fixtureInputs.L2Sources))
+		for _, source := range fixtureInputs.L2Sources {
+			rollupCfgs = append(rollupCfgs, source.Node.RollupCfg)
+			l2Endpoints = append(l2Endpoints, source.Engine.HTTPEndpoint())
+		}
+
+		err = RunHokuleaNative(t, workDir, rollupCfgs, l1.HTTPEndpoint(), fakeBeacon.BeaconAddr(), l2Endpoints, *fixtureInputs)
 		checkResult(t, err)
 	} else {
 		programCfg := NewOpProgramCfg(fixtureInputs)
