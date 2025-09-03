@@ -130,6 +130,7 @@ ethereum_package:
       el_extra_params:
         - --graphql # needed to query for batcher-inbox txs to test failover working correctly
       cl_type: teku
+      cl_image: consensys/teku:25.7.1
   network_params:
     preset: minimal
     genesis_delay: 5
