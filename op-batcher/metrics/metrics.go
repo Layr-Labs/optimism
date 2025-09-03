@@ -68,6 +68,8 @@ type Metricer interface {
 	Document() []opmetrics.DocumentedMetric
 
 	PendingDABytes() float64
+
+	RecordFailoverToEthDA()
 }
 
 type Metrics struct {
@@ -122,6 +124,8 @@ type Metrics struct {
 	pidControllerIntegral   prometheus.Gauge
 	pidControllerDerivative prometheus.Gauge
 	pidResponseTime         prometheus.Histogram
+
+	failoverToEthDA prometheus.Counter
 }
 
 var _ Metricer = (*Metrics)(nil)
@@ -297,6 +301,11 @@ func NewMetrics(procName string) *Metrics {
 			Namespace: ns,
 			Name:      "unsafe_da_bytes",
 			Help:      "The estimated number of unsafe DA bytes",
+		}),
+		failoverToEthDA: factory.NewCounter(prometheus.CounterOpts{
+			Namespace: ns,
+			Name:      "failover_total",
+			Help:      "Total number of failovers to EthDA",
 		}),
 	}
 	m.pendingDABytesGaugeFunc = factory.NewGaugeFunc(prometheus.GaugeOpts{
@@ -510,4 +519,9 @@ func (m *Metrics) RecordThrottleControllerState(error, integral, derivative floa
 // RecordThrottleResponseTime records the response time of the PID controller
 func (m *Metrics) RecordThrottleResponseTime(duration time.Duration) {
 	m.pidResponseTime.Observe(duration.Seconds())
+}
+
+// RecordFailoverToEthDA records when the system fails over to EthDA
+func (m *Metrics) RecordFailoverToEthDA() {
+	m.failoverToEthDA.Inc()
 }

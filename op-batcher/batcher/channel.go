@@ -81,7 +81,6 @@ func (c *channel) rewindAltDAFrameCursor(txData txData) {
 // It rewinds the channelBuilder's frameCursor to the first frame of the failed txData,
 // so that the frames can be resubmitted. failoverToEthDA should be set to true when using altDA
 // and altDA is down. This will switch the channel to submit frames to ethDA instead.
-// TODO: add a metric for altDA submission failures.
 func (c *channel) AltDASubmissionFailed(id string, failoverToEthDA bool) {
 	// We coopt TxFailed to rewind the frame cursor.
 	// This will force a resubmit of all the following frames as well,
@@ -100,6 +99,7 @@ func (c *channel) AltDASubmissionFailed(id string, failoverToEthDA bool) {
 		// batcherService.initChannelConfig function stateless so that we can reuse it.
 		c.log.Info("Failing over to calldata txs", "id", c.ID())
 		c.cfg.DaType = DaTypeCalldata
+		c.metr.RecordFailoverToEthDA()
 	}
 }
 

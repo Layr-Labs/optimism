@@ -78,3 +78,5 @@ func (nm *ThrottlingMetrics) PendingDABytes() float64 {
 }
 
 func (*noopMetrics) ClearAllStateMetrics() {}
+
+func (*noopMetrics) RecordFailoverToEthDA() {}
