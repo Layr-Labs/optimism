@@ -59,9 +59,9 @@ type Metricer interface {
 	// It should be called when clearing the ChannelManager state.
 	ClearAllStateMetrics()
 
-	RecordBatchTxSubmitted()
-	RecordBatchTxSuccess()
-	RecordBatchTxFailed()
+	RecordBatchTxSubmitted(daType string)
+	RecordBatchTxSuccess(daType string)
+	RecordBatchTxFailed(daType string)
 
 	RecordBlobUsedBytes(num int)
 
@@ -239,7 +239,7 @@ func NewMetrics(procName string) *Metrics {
 			Buckets:   prometheus.LinearBuckets(0.0, eth.MaxBlobDataSize/13, 14),
 		}),
 
-		batcherTxEvs: opmetrics.NewEventVec(factory, ns, "", "batcher_tx", "BatcherTx", []string{"stage"}),
+		batcherTxEvs: opmetrics.NewEventVec(factory, ns, "", "batcher_tx", "BatcherTx", []string{"stage", "datype"}),
 
 		throttleIntensity: *factory.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: ns,
@@ -437,16 +437,16 @@ func (m *Metrics) RecordChannelTimedOut(id derive.ChannelID) {
 	m.channelEvs.Record(StageTimedOut)
 }
 
-func (m *Metrics) RecordBatchTxSubmitted() {
-	m.batcherTxEvs.Record(TxStageSubmitted)
+func (m *Metrics) RecordBatchTxSubmitted(daType string) {
+	m.batcherTxEvs.Record(TxStageSubmitted, daType)
 }
 
-func (m *Metrics) RecordBatchTxSuccess() {
-	m.batcherTxEvs.Record(TxStageSuccess)
+func (m *Metrics) RecordBatchTxSuccess(daType string) {
+	m.batcherTxEvs.Record(TxStageSuccess, daType)
 }
 
-func (m *Metrics) RecordBatchTxFailed() {
-	m.batcherTxEvs.Record(TxStageFailed)
+func (m *Metrics) RecordBatchTxFailed(daType string) {
+	m.batcherTxEvs.Record(TxStageFailed, daType)
 }
 
 func (m *Metrics) RecordBlobUsedBytes(num int) {
