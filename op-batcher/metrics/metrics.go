@@ -125,7 +125,7 @@ type Metrics struct {
 	pidControllerDerivative prometheus.Gauge
 	pidResponseTime         prometheus.Histogram
 
-	failoverToEthDA prometheus.Counter
+	eigenDAFailoverToEthDA prometheus.Counter
 }
 
 var _ Metricer = (*Metrics)(nil)
@@ -302,9 +302,9 @@ func NewMetrics(procName string) *Metrics {
 			Name:      "unsafe_da_bytes",
 			Help:      "The estimated number of unsafe DA bytes",
 		}),
-		failoverToEthDA: factory.NewCounter(prometheus.CounterOpts{
+		eigenDAFailoverToEthDA: factory.NewCounter(prometheus.CounterOpts{
 			Namespace: ns,
-			Name:      "failover_total",
+			Name:      "eigenda_failover_total",
 			Help:      "Total number of failovers to EthDA",
 		}),
 	}
@@ -523,5 +523,5 @@ func (m *Metrics) RecordThrottleResponseTime(duration time.Duration) {
 
 // RecordFailoverToEthDA records when the system fails over to EthDA
 func (m *Metrics) RecordFailoverToEthDA() {
-	m.failoverToEthDA.Inc()
+	m.eigenDAFailoverToEthDA.Inc()
 }
