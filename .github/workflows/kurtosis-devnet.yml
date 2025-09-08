@@ -30,7 +30,7 @@ jobs:
         with:
           version: ${{ env.MISE_VERSION }}
           experimental: true
-      - run: AUTOFIX=true just eigenda-devnet-start eigenda-template-values/${{ matrix.valuesFile }}
+      - run: just eigenda-devnet-start eigenda-template-values/${{ matrix.valuesFile }}
         working-directory: kurtosis-devnet
         env:
           # Temporary fix for error (see https://github.com/Layr-Labs/optimism/actions/runs/14325605690/job/40150440399?pr=42)
@@ -78,7 +78,7 @@ jobs:
             }
           }' '. *= $newconfig' eigenda-template-values/${{ matrix.valuesFile }} > sepolia-config-with-secrets.json
         working-directory: kurtosis-devnet
-      - run: AUTOFIX=true just eigenda-devnet-start sepolia-config-with-secrets.json
+      - run: just eigenda-devnet-start sepolia-config-with-secrets.json
         working-directory: kurtosis-devnet
         env:
           # Temporary fix for error (see https://github.com/Layr-Labs/optimism/actions/runs/14325605690/job/40150440399?pr=42)
