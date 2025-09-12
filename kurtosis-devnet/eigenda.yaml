@@ -100,11 +100,13 @@ optimism_package:
           - --memstore.expiration=30m
         {{- else }} # connect to eigenda sepolia backend
           # V1 flags
+          - --eigenda.disperser-rpc=disperser-testnet-sepolia.eigenda.xyz:443
           - --eigenda.svc-manager-addr=0x3a5acf46ba6890B8536420F4900AC9BC45Df4764
           # The two params below are loaded from the eigenda-secrets.json file
           - --eigenda.signer-private-key-hex={{ $eigendaV1SignerKey }}
           - --eigenda.eth-rpc={{ $eigendaBackendEthRpc }}
           # V2 flags
+          - --eigenda.v2.disperser-rpc=disperser-testnet-sepolia.eigenda.xyz:443
           - --eigenda.v2.signer-payment-key-hex={{ $eigendaV2SignerKey }}
           - --eigenda.v2.eth-rpc={{ $eigendaBackendEthRpc }}
         {{- end }}
