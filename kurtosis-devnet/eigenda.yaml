@@ -86,7 +86,7 @@ optimism_package:
         proposal_interval: 10m
       da_params:
         enabled: true
-        image: ghcr.io/layr-labs/eigenda-proxy:v1.8.2
+        image: ghcr.io/layr-labs/eigenda-proxy:2.2.1
         cmd:
           - --addr=0.0.0.0
           - --port=3100
@@ -94,22 +94,19 @@ optimism_package:
           - --storage.dispersal-backend={{ $proxyDispersalBackend }} #v1 or v2
           - --api-enabled=admin # to enable changing dispersal-backend to v2 without restarting
           - --eigenda.v2.max-blob-length=1MiB # makes startup faster by only loading 1MiB/2MiB of G1/G2 SRS points.
+          - --eigenda.v2.network=sepolia_testnet
         {{- if $useProxyMemstore }}
           - --memstore.enabled
           - --memstore.expiration=30m
         {{- else }} # connect to eigenda sepolia backend
           # V1 flags
-          - --eigenda.disperser-rpc=disperser-testnet-sepolia.eigenda.xyz:443
           - --eigenda.svc-manager-addr=0x3a5acf46ba6890B8536420F4900AC9BC45Df4764
           # The two params below are loaded from the eigenda-secrets.json file
           - --eigenda.signer-private-key-hex={{ $eigendaV1SignerKey }}
           - --eigenda.eth-rpc={{ $eigendaBackendEthRpc }}
           # V2 flags
-          - --eigenda.v2.disperser-rpc=disperser-testnet-sepolia.eigenda.xyz:443
-          - --eigenda.v2.cert-verifier-addr=0x58D2B844a894f00b7E6F9F492b9F43aD54Cd4429
           - --eigenda.v2.signer-payment-key-hex={{ $eigendaV2SignerKey }}
           - --eigenda.v2.eth-rpc={{ $eigendaBackendEthRpc }}
-          - --eigenda.v2.network=sepolia_testnet
         {{- end }}
 
   challengers:
