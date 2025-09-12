@@ -86,7 +86,7 @@ optimism_package:
         proposal_interval: 10m
       da_params:
         enabled: true
-        image: ghcr.io/layr-labs/eigenda-proxy:2.1.0
+        image: ghcr.io/layr-labs/eigenda-proxy:v1.8.2
         cmd:
           - --addr=0.0.0.0
           - --port=3100
