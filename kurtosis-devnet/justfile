@@ -105,7 +105,7 @@ eigenda-devnet-test-memstore *ARGS="":
 # Take a look at how CI does it in .github/workflows/kurtosis-devnet.yml .
 [group('eigenda')]
 eigenda-devnet-test-sepolia *ARGS="":
-    go test ./tests/eigenda/... -run "_Sepolia$" -v -timeout 40m {{ARGS}}
+    go test ./tests/eigenda/... -run "_Sepolia$" -v -timeout 50m {{ARGS}}
 [group('eigenda')]
 eigenda-devnet-add-tx-fuzzer ENCLAVE_NAME="eigenda-devnet" *ARGS="":
   kurtosis service add {{ENCLAVE_NAME}} tx-fuzz ethpandaops/tx-fuzz:master --cmd \
