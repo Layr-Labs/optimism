@@ -11,13 +11,13 @@ import (
 func TestBatcherFromLogs_Sepolia(t *testing.T) {
 	deadline, ok := t.Deadline()
 	// !ok means no timeout was set, and hence uses golang's default 10min timeout.
-	if !ok || time.Until(deadline) < 15*time.Minute {
-		t.Logf("TestBatcherFromLogs_Sepolia needs a timeout of at least 15 minutes to run.")
+	if !ok || time.Until(deadline) < 30*time.Minute {
+		t.Logf("TestBatcherFromLogs_Sepolia needs a timeout of at least 30 minutes to run.")
 		t.FailNow()
 	}
 	harness := NewHarness(t)
 	// Batching time on Sepolia can be up to 10 minutes, so we need long time to see a tx getting confirmed.
-	testBatcherFromLogs(t, harness, 15*time.Minute)
+	testBatcherFromLogs(t, harness, 30*time.Minute)
 }
 
 func TestBatcherFromLogs_Memstore(t *testing.T) {
