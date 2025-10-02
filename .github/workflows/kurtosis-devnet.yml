@@ -52,10 +52,6 @@ jobs:
         # This list should be kept up-to-date with the files in eigenda-template-values
         valuesFile:
           [
-            # v1 is too slow for sequential large blobs.
-            # Could send a single massive blob every few minutes, but then migration test
-            # takes too long waiting for the few certs to land onchain, so opted to just not run it.
-            "sepolia-concurrent-small-blobs.json",
             "sepolia-v2-sequential-large-blobs.json",
             "sepolia-v2-concurrent-small-blobs.json",
           ]
