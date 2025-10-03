@@ -48,8 +48,7 @@ We will implement a new parallel blobs submission mechanism which is compatible 
 We have implemented an automatic failover mechanism that ensures rollup liveness if EigenDA is unavailable:
 
 - **Automatic Detection**: The batcher detects EigenDA unavailability when the proxy returns HTTP 503 (Service Unavailable) responses
-- **Seamless Failover**: When EigenDA is down, the batcher automatically switches to posting batch data as Ethereum calldata instead
-- **Automatic Failback**: Once EigenDA becomes available again, the batcher automatically returns to using EigenDA for cost efficiency
+- **Seamless Failover**: When EigenDA is unavailable, the batcher posts batch data as Ethereum calldata
 - **Tested**: Comprehensive end-to-end tests verify the failover behavior works correctly in both unit tests and Kurtosis devnet environments
 
 ### 3. Security (for Safety)
