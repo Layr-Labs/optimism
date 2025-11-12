@@ -27,8 +27,7 @@ func TestDAClientPrecomputed(t *testing.T) {
 	}
 	require.NoError(t, cfg.Check())
 
-	client, err := cfg.NewDAClient()
-	require.NoError(t, err)
+	client := cfg.NewDAClient()
 
 	rng := rand.New(rand.NewSource(1234))
 
@@ -86,8 +85,7 @@ func TestDAClientService(t *testing.T) {
 	}
 	require.NoError(t, cfg.Check())
 
-	client, err := cfg.NewDAClient()
-	require.NoError(t, err)
+	client := cfg.NewDAClient()
 
 	rng := rand.New(rand.NewSource(1234))
 
